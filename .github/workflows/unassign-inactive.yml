@@ -1,9 +1,9 @@
-name: Unassign Inactive Issues
+# name: Unassign Inactive Issues
 
-on:
-  schedule:
-    - cron: '*/10 * * * *'  # Run daily at midnight
+# on:
+#   schedule:
+#     - cron: '*/10 * * * *'  # Run daily at midnight
 
-jobs:
-  unassign:
-    uses: ./.github/action@main
+# jobs:
+#   unassign:
+#     uses: ./.github/action@main
