@@ -2,7 +2,7 @@ name: Unassign Inactive Issues
 
 on:
   schedule:
-    - cron: '*/1 * * * *' # Runs every minute for testing 
+    - cron: '*/10 * * * *' # Runs every minute for testing 
 
 jobs:
   unassign_inactive_issue:
@@ -12,5 +12,5 @@ jobs:
         env:
           WEB_TOKEN: ${{ secrets.WEB_TOKEN }}
 
-        run: node index.js
+        run: node .github/index.js
       
