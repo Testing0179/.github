@@ -19,4 +19,5 @@ jobs:
         with:
           githubToken: ${{ secrets.WEB_TOKEN }}
           inactivityPeriodInMinutes: 1
+          
 
