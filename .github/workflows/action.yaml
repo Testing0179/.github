@@ -12,5 +12,5 @@ jobs:
         env:
           WEB_TOKEN: ${{ secrets.WEB_TOKEN }}
 
-        run: node .github/index.js
+        run: node workflow/index.js
       
