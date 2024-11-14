@@ -27,7 +27,7 @@ async function run() {
         // (now - lastActivity > inactivityPeriod * 24 * 60 * 60 * 1000 && !issue.pull_request) for 1 month 
         if (now - lastActivity > inactivityPeriodInMinutes * 60 * 1000 && !issue.pull_request) {
           console.log("checked successfully");
-          
+
           await octokit.rest.issues.edit({
             owner,
             repo,
@@ -50,6 +50,6 @@ async function run() {
     core.setFailed(error.message);
   }
 }
-
+run();
 // module.exports = run;
 export default run;
