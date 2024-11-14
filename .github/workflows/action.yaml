@@ -16,6 +16,6 @@ jobs:
         echo "::set-env name=WEB_TOKEN::${{ secrets.WEB_TOKEN }}"
         echo "::set-env name=GITHUB_REPOSITORY_OWNER::${{ github.repository_owner }}"
         echo "::set-env name=GITHUB_REPOSITORY::${{ github.repository }}"
-      - run:  cd .. && cd .. && npm install
-      - run: cd .. && cd .. && node index.js
+      - run:  cd .. && npm install
+      - run:  && node index.js
  
