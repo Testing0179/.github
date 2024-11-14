@@ -1,5 +1,5 @@
 import { Octokit } from '@octokit/rest';
-import * as core from '@actions/core';
+import * as core from '@actions/core';  // Import core for failure handling
 
 async function run() {
   try {
@@ -55,6 +55,7 @@ async function run() {
 
 // Run the function
 run();
+
 
 // module.exports = run;
 export default run;
