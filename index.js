@@ -23,7 +23,7 @@ async function run() {
         const lastActivity = new Date(issue.updated_at);
         const inactivityPeriod = 30; // days
         const now = new Date();
-        const inactivityPeriodInMinutes = 10;
+        const inactivityPeriodInMinutes = 1;
         // (now - lastActivity > inactivityPeriod * 24 * 60 * 60 * 1000 && !issue.pull_request) for 1 month 
         if (now - lastActivity > inactivityPeriodInMinutes * 60 * 1000 && !issue.pull_request) {
           await octokit.rest.issues.edit({
