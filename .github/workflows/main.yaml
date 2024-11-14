@@ -10,9 +10,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3  # Ensure repository is checked out
+
+      - name: Install dependencies
+        run: npm install  # Install dependencies from package.json
       
       - name: Run unassign-inactive-issues action
-        uses: ./ # Path to your local action
+        uses: ./ # Path to the local action
         with:
           githubToken: ${{ secrets.WEB_TOKEN }}
           inactivityPeriodInMinutes: 1
