@@ -12,5 +12,5 @@ jobs:
         env:
           WEB_TOKEN: ${{ secrets.WEB_TOKEN }}
 
-        run: npm install node index.js
+        run: node index.js
       
