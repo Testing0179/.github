@@ -9,9 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check and unassign inactive issues
-        uses: ./
+        uses: ../
         env:
           WEB_TOKEN: ${{ secrets.WEB_TOKEN }}
 
-        run: node index.js
+
       
