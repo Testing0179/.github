@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run unassign-inactive-issues action
-        uses: ./.github/actions/unassign-inactive-issues # Adjust this path if action.yml is in a different location
+        uses: ./.actions/unassign-inactive-issues # Adjust this path if action.yml is in a different location
         with:
           githubToken: ${{ secrets.WEB_TOKEN }}
           inactivityPeriodInMinutes: 1
