@@ -1,0 +1,21 @@
+name: Unassign Inactive Issues
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'  # for running every 10 min 
+
+jobs:
+  unassign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+      - run: |
+        echo "::set-env name=GITHUB_TOKEN::${{ secrets.GITHUB_TOKEN }}"
+        echo "::set-env name=GITHUB_REPOSITORY_OWNER::${{ github.repository_owner }}"
+        echo "::set-env name=GITHUB_REPOSITORY::${{ github.repository }}"
+      - run: npm install
+      - run: node index.js
+ 
