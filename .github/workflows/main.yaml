@@ -8,8 +8,12 @@ jobs:
   unassign_inactive_issue:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3  # Ensure repository is checked out
+      
       - name: Run unassign-inactive-issues action
-        uses: ./ # Adjust this path if action.yml is in a different location
+        uses: ./ # Path to your local action
         with:
           githubToken: ${{ secrets.WEB_TOKEN }}
           inactivityPeriodInMinutes: 1
+
