@@ -1,4 +1,4 @@
-name: Unassign Inactive Issues 2
+name: Unassign Inactive Issues 1
 
 on:
   schedule:
@@ -12,5 +12,5 @@ jobs:
         env:
           WEB_TOKEN: ${{ secrets.WEB_TOKEN }}
 
-        run: npm install && node index.js
+        run: npm install node index.js
       
