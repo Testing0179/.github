@@ -9,8 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check and unassign inactive issues
+        uses:./
         env:
           WEB_TOKEN: ${{ secrets.WEB_TOKEN }}
 
-        run: node workflow/index.js
+        run: node index.js
       
