@@ -1,4 +1,4 @@
-name: Unassign Inactive Issues
+name: Unassign Inactive Issues 1
 
 on:
   schedule:
