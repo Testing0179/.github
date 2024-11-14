@@ -1,9 +1,15 @@
-# name: Unassign Inactive Issues
+name: Unassign Inactive Issues
 
-# on:
-#   schedule:
-#     - cron: '*/10 * * * *'  # Run daily at midnight
+on:
+  schedule:
+    - cron: '*/1 * * * *' # Runs every minute for testing
 
-# jobs:
-#   unassign:
-#     uses: ./.github/action@main
+jobs:
+  unassign_inactive_issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check and unassign inactive issues
+        env:
+          WEB_TOKEN: ${{ secrets.WEB_TOKEN }}
+        run: npm install
+        run: node index.js
