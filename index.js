@@ -26,6 +26,8 @@ async function run() {
         const inactivityPeriodInMinutes = 1;
         // (now - lastActivity > inactivityPeriod * 24 * 60 * 60 * 1000 && !issue.pull_request) for 1 month 
         if (now - lastActivity > inactivityPeriodInMinutes * 60 * 1000 && !issue.pull_request) {
+          console.log("checked successfully");
+          
           await octokit.rest.issues.edit({
             owner,
             repo,
