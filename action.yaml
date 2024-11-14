@@ -13,7 +13,7 @@ jobs:
         with:
           node-version: '16'
       - run: |
-        echo "::set-env name=GITHUB_TOKEN::${{ secrets.GITHUB_TOKEN }}"
+        echo "::set-env name=WEB_TOKEN::${{ secrets.WEB_TOKEN }}"
         echo "::set-env name=GITHUB_REPOSITORY_OWNER::${{ github.repository_owner }}"
         echo "::set-env name=GITHUB_REPOSITORY::${{ github.repository }}"
       - run: npm install
