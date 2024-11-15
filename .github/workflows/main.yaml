@@ -10,16 +10,20 @@ on:
         description: "Inactivity period in minutes to trigger unassignment"
         required: true
 
+jobs:
+  unassign_inactive_issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-inputs:
-  githubToken:
-    description: 'GitHub token for authentication'
-    required: true
-  inactivityPeriodInMinutes:
-    description: 'The inactivity threshold in minutes for unassigning an issue'
-    required: false
-    default: '1'
+      - name: Install dependencies
+        working-directory: ./scripts  # Path to the directory with package.json
+        run: npm install
 
-runs:
-  using: 'node16'
-  main: './scripts/index.js'
+      - name: Run unassign-inactive-issues action
+        working-directory: ./scripts  # Specify the directory where index.js is located
+        run: node index.js
+        env:
+          githubToken: gihubToken
+          inactivityPeriodInMinutes: 15
