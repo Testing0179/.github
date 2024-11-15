@@ -1,7 +1,7 @@
 name: Unassign Inactive Issues
 description: Unassigns users from issues if they are inactive based on comments or PR activity.
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       githubToken:
         description: "GitHub token for authentication"
