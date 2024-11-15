@@ -15,7 +15,7 @@ jobs:
         run: npm install  # Install dependencies from package.json
       
       - name: Run unassign-inactive-issues action
-        uses: ./.github/workflows  # Path to the reusable action
+        uses: ./.github  # Path to the reusable action
         with:
           githubToken: ${{ secrets.WEB_TOKEN }}
           inactivityPeriodInMinutes: 15
