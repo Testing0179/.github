@@ -1,24 +1,15 @@
 name: Unassign Inactive Issues
+description: Unassigns users from issues if they are inactive based on comments or PR activity.
 
-on:
-  schedule:
-    - cron: '*/10 * * * *'  # Runs every 10 minutes for testing
-  workflow_dispatch:  # Allows manual trigger for testing
+inputs:
+  githubToken:
+    description: 'GitHub token for authentication'
+    required: true
+  inactivityPeriodInMinutes:
+    description: 'The inactivity threshold in minutes for unassigning an issue'
+    required: false
+    default: '1'
 
-jobs:
-  unassign_inactive_issue:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Install dependencies
-        working-directory: ./scripts  # Path to the directory with package.json
-        run: npm install
-
-      - name: Run unassign-inactive-issues action
-        working-directory: ./scripts  # Specify the directory where index.js is located
-        run: node index.js
-        env:
-          githubToken: ${{ secrets.WEB_TOKEN }}
-          inactivityPeriodInMinutes: 15
+runs:
+  using: 'node16'
+  main: './scripts/index.js'
