@@ -10,6 +10,6 @@ inputs:
     required: false
     default: '1'
 
-runs:
-  using: 'node16'
-  main: './scripts/index.js'
+# runs:
+#   using: 'node16'
+#   main: './scripts/index.js'
