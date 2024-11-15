@@ -2,7 +2,7 @@ name: Unassign Inactive Issues
 
 on:
   schedule:
-    - cron: '*/1 * * * *' # Runs every minute for testing   
+    - cron: '*/10 * * * *' # Adjust this as needed (runs every 10 minutes for testing)
 
 jobs:
   unassign_inactive_issue:
@@ -12,13 +12,10 @@ jobs:
         uses: actions/checkout@v3  # Ensure repository is checked out
 
       - name: Install dependencies
-        run: npm install            # Install dependencies from package.json
+        run: npm install  # Install dependencies from package.json
       
       - name: Run unassign-inactive-issues action
-        uses: ./.github/workflows/action.yaml  # Path to the local action
+        uses: ./.github/workflows  # Path to the reusable action
         with:
           githubToken: ${{ secrets.WEB_TOKEN }}
           inactivityPeriodInMinutes: 15
-          
-
-
