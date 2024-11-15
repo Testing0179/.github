@@ -2,7 +2,7 @@ name: Unassign Inactive Issues
 
 on:
   schedule:
-    - cron: '*/10 * * * *' # Runs every minute for testing
+    - cron: '*/1 * * * *' # Runs every minute for testing
 
 jobs:
   unassign_inactive_issue:
