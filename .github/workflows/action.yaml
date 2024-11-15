@@ -12,4 +12,4 @@ inputs:
 
 runs:
   using: 'node16'
-  main: '../../scripts/index.js'
+  main: '../scripts/index.js'
