@@ -1,25 +1,36 @@
 import { Octokit } from '@octokit/rest';
-import * as core from '@actions/core';  // Import core for failure handling
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file if running locally
+dotenv.config();
 
 async function run() {
   try {
-    // Get token and inactivity period from the inputs
-    const token = core.getInput('githubToken');
-    const inactivityPeriodInMinutes = parseInt(core.getInput('inactivityPeriodInMinutes'), 10);
+    // Get token and inactivity period from environment variables
+    const token = process.env.WEB_TOKEN;
+    const inactivityPeriodInMinutes = parseInt(process.env.INACTIVITY_PERIOD || '15', 10); // Default to 15 minutes if not set
+
+    if (!token) {
+      throw new Error('GitHub token (WEB_TOKEN) is missing.');
+    }
+
+    if (!process.env.GITHUB_REPOSITORY) {
+      throw new Error('GITHUB_REPOSITORY environment variable is missing.');
+    }
 
     // Retrieve repo context from GitHub Actions environment
     const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
 
     const octokit = new Octokit({ auth: token });
 
-    // Correct API endpoint to list issues in the repository
+    // Fetch open issues in the repository
     const issues = await octokit.rest.issues.listForRepo({
       owner,
       repo,
       state: 'open',
       per_page: 100,
     });
-    
+
     for (const issue of issues.data) {
       const assignee = issue.assignee;
       if (assignee && !assignee.site_admin) {
@@ -30,6 +41,7 @@ async function run() {
         if (now - lastActivity > inactivityPeriodInMinutes * 60 * 1000 && !issue.pull_request) {
           console.log(`Unassigning @${assignee.login} due to inactivity on issue #${issue.number}`);
 
+          // Unassign the user
           await octokit.rest.issues.update({
             owner,
             repo,
@@ -37,6 +49,7 @@ async function run() {
             assignees: [],
           });
 
+          // Add a comment to the issue
           await octokit.rest.issues.createComment({
             owner,
             repo,
@@ -46,16 +59,13 @@ async function run() {
         }
       }
     }
-    
   } catch (error) {
-    console.error(error);
-    core.setFailed(error.message); // Mark the GitHub Action as failed on error
+    console.error('Error:', error.message);
+    process.exit(1); // Exit with failure status
   }
 }
 
 // Run the function
 run();
 
-
-// module.exports = run;
-export default run;
+  export default run;
