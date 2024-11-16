@@ -1,5 +1,6 @@
 name: Unassign Inactive Issues
-description: Unassigns users from issues if they are inactive based on comments or PR activity.
+run-name: Unassigns users from issues if they are inactive based on comments or PR activity.
+
 on:
   workflow_call:
       inputs:
