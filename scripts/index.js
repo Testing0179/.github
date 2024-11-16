@@ -42,12 +42,12 @@ async function run() {
         if (now - lastActivity > inactivityPeriodInMinutes * 60 * 1000 && !issue.pull_request) {
           console.log('done');
           
-          console.log(`Unassigning @${assignee.login} due to inactivity on issue #${issue.number}`);
+          console.log(`Unassigning @${assignee.login} due to inactivity on issue #${issue.id}`);
 
           await octokit.rest.issues.update({
             owner,
             repo,
-            issue_number: issue.number,
+            issue_number: issue.id,
             assignees: [],
           });
 
