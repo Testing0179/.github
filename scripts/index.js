@@ -32,6 +32,9 @@ async function run() {
       const assignee = issue.assignee;
       if (assignee && !assignee.site_admin) {
         const lastActivity = new Date(issue.updated_at);
+        console.log(lastActivity);
+        console.log(assignee);
+        
         const now = new Date();
 
         // Check inactivity period
