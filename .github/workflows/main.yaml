@@ -25,8 +25,19 @@ jobs:
         with:
           node-version: '16'  # Specify the Node.js version
 
+      # Debug step to check directory structure
+      - name: Debug directory structure
+        run: |
+          pwd
+          ls -la
+          
       - name: Install dependencies
-        run: cd scripts && npm install
+        run: |
+          if [ ! -d "scripts" ]; then
+            echo "Scripts directory not found"
+            exit 1
+          fi
+          cd scripts && npm install
 
       - name: Run script
         run: cd scripts && node index.js
