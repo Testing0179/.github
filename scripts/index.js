@@ -37,6 +37,8 @@ async function run() {
 
         const now = new Date();
         console.log(now - lastActivity);
+        console.log(inactivityPeriodInMinutes * 60 * 1000);
+        
         console.log(now - lastActivity > inactivityPeriodInMinutes * 60 * 1000 );
         
         // Check inactivity period
