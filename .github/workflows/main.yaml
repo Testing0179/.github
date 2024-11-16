@@ -33,5 +33,5 @@ jobs:
         working-directory: ./scripts  # Specify the directory where index.js is located
         run: node index.js
         env:
-          githubToken: ${{ inputs.github_Token }}
+          githubToken: ${{ secrets.github_Token }}
           inactivityPeriodInMinutes: ${{ inputs.inactivityPeriodInMinutes }}
