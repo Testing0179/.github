@@ -14,7 +14,7 @@ async function run() {
 
     
     const octokit = new Octokit({
-      auth: process.env.WEB_Token,
+      auth: token,
       request: {
           fetch: fetch
       }
