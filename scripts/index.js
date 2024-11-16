@@ -42,12 +42,12 @@ async function run() {
         if ( !issue.pull_request) {
           console.log('done');
           
-          console.log(`Unassigning @${assignee.login} due to inactivity on issue #${issue.id}`);
+          console.log(`Unassigning @${assignee.login} due to inactivity on issue #${issue.number}`);
 
           await octokit.rest.issues.update({
             owner,
             repo,
-            issue_number: issue.id,
+            issue_number: issue.number,
             assignees: [],
           });
 
