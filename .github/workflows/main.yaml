@@ -26,7 +26,7 @@ jobs:
           node-version: '16'  # Specify the Node.js version
 
       - name: Install dependencies
-        working-directory: scripts  # Path to the directory with package.json
+        working-directory: ${{ github.workspace }}/scripts  # Path to the directory with package.json
         run: npm install
 
       - name: Run unassign-inactive-issues action
