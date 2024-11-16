@@ -3,7 +3,7 @@ description: Unassigns users from issues if they are inactive based on comments 
 on:
   workflow_call:
     secrets:
-      github_Token:
+      WEB_token:
         description: "GitHub token for authentication"
         required: true
         type: string

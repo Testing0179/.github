@@ -4,7 +4,7 @@ import * as core from '@actions/core';  // Import core for failure handling
 async function run() {
   try {
     // Get token and inactivity period from the inputs
-    const token = core.getInput('githubToken');
+    const token = core.getInput('WEB_Token');
     const inactivityPeriodInMinutes = parseInt(core.getInput('inactivityPeriodInMinutes'), 10);
 
     // Retrieve repo context from GitHub Actions environment
