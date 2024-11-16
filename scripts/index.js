@@ -39,7 +39,7 @@ async function run() {
         console.log(now - lastActivity);
         
         // Check inactivity period
-        if (now - lastActivity > inactivityPeriodInMinutes * 60 * 1000 && !issue.pull_request) {
+        if ( !issue.pull_request) {
           console.log('done');
           
           console.log(`Unassigning @${assignee.login} due to inactivity on issue #${issue.id}`);
