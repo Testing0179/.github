@@ -6,12 +6,10 @@ on:
       WEB_token:
         description: "GitHub token for authentication"
         required: true
-        type: string
     inputs:
       inactivityPeriodInMinutes:
         description: "Inactivity period in minutes to trigger unassignment"
         required: true
-        type: number
 
 jobs:
   unassign_inactive_issue:
