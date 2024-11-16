@@ -1,5 +1,6 @@
-const core = require("@actions/core");
-const { Octokit } = require("@octokit/rest");
+import { Octokit } from '@octokit/rest';
+import * as core from '@actions/core';  // Import core for failure handling
+import fetch from 'node-fetch';
 
 async function unassignInactiveContributors() {
   try {
