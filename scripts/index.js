@@ -27,6 +27,7 @@ async function run() {
       state: 'open',
       per_page: 100,
     });
+    console.log(issues);
     
     for (const issue of issues.data) {
       const assignee = issue.assignee;
