@@ -1,5 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import * as core from '@actions/core';  // Import core for failure handling
+import fetch from 'node-fetch';
+
 
 async function run() {
   try {
@@ -10,7 +12,13 @@ async function run() {
     // Retrieve repo context from GitHub Actions environment
     const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
 
-    const octokit = new Octokit({ auth: token });
+    
+    const octokit = new Octokit({
+      auth: process.env.WEB_Token,
+      request: {
+          fetch: fetch
+      }
+    });
 
     // Correct API endpoint to list issues in the repository
     const issues = await octokit.rest.issues.listForRepo({
