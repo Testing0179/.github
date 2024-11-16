@@ -6,7 +6,7 @@ on:
       WEB_Token:
         description: "GitHub token for authentication"
         required: true
-        type: numbers
+        type: string
     inputs:
       inactivityPeriodInMinutes:
         description: "Inactivity period in minutes to trigger unassignment"
