@@ -3,15 +3,15 @@ description: Unassigns users from issues if they are inactive based on comments 
 on:
   workflow_call:
     secrets:
-      WEB_Token:
-        description: "GitHub token for authentication"
-        required: true
-        type: string
-    inputs:
+      inputs:
       inactivityPeriodInMinutes:
         description: "Inactivity period in minutes to trigger unassignment"
         required: true
         type: number
+    secrets:
+      WEB_token:
+        description: "GitHub token for authentication"
+        required: true
 
 jobs:
   unassign_inactive_issue:
