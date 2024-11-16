@@ -3,13 +3,13 @@ run-name: Unassigns users from issues if they are inactive based on comments or 
 
 on:
   workflow_call:
-      inputs:
+    inputs:
       inactivityPeriodInMinutes:
         description: "Inactivity period in minutes to trigger unassignment"
         required: true
         type: number
     secrets:
-      WEB_token:
+      WEB_Token:
         description: "GitHub token for authentication"
         required: true
 
