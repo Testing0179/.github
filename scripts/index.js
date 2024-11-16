@@ -31,6 +31,7 @@ async function unassignInactiveContributors() {
       owner,
       repo,
       state: "open",
+      per_page:100,
     });
 
     const now = new Date();
