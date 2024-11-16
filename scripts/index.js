@@ -7,7 +7,7 @@ async function run() {
   try {
     // Get token and inactivity period from the inputs
     const token = core.getInput('WEB_Token');
-    const inactivityPeriodInMinutes = 10;
+    const inactivityPeriodInMinutes = 1;
 
     // Retrieve repo context from GitHub Actions environment
     const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
