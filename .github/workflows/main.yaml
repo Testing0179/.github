@@ -6,9 +6,11 @@ on:
       github_Token:
         description: "GitHub token for authentication"
         required: true
+        type: string
       inactivityPeriodInMinutes:
         description: "Inactivity period in minutes to trigger unassignment"
         required: true
+        type: number
 
 jobs:
   unassign_inactive_issue:
