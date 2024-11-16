@@ -6,6 +6,7 @@ on:
       github_Token:
         description: "GitHub token for authentication"
         required: true
+        type: string
       inactivityPeriodInMinutes:
         description: "Inactivity period in minutes to trigger unassignment"
         required: true
@@ -13,7 +14,6 @@ on:
 
 jobs:
   unassign_inactive_issue:
-    type: job
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
