@@ -108,45 +108,6 @@ async function run() {
             return true;
           }
 
-          // Method 4: Check for PR relationships
-          try {
-            const linkedItems = await octokit.graphql(`
-              query($owner: String!, $repo: String!, $number: Int!) {
-                repository(owner: $owner, name: $repo) {
-                  issue(number: $number) {
-                    timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
-                      nodes {
-                        ... on CrossReferencedEvent {
-                          source {
-                            ... on PullRequest {
-                              number
-                              state
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            `, {
-              owner,
-              repo,
-              number: issue.number
-            });
-
-            const hasOpenPR = linkedItems?.repository?.issue?.timelineItems?.nodes?.some(
-              node => node?.source?.state === 'OPEN'
-            );
-
-            if (hasOpenPR) {
-              console.log(`Issue #${issue.number} has linked PRs from GraphQL query`);
-              return true;
-            }
-          } catch (graphqlError) {
-            console.log('GraphQL query failed:', graphqlError);
-          }
-
           console.log(`No PR links found for issue #${issue.number}`);
           return false;
         } catch (error) {
