@@ -5,7 +5,7 @@ import fetch from 'node-fetch';
 async function unassignInactiveContributors() {
   try {
     // Retrieve inputs and secrets
-    const githubToken = core.getInput("WEB_Token", { required: true });
+    const githubToken = core.getInput("token", { required: true });
     const inactivityPeriodInMinutes = 1;
 
     // Validate inputs
@@ -17,7 +17,7 @@ async function unassignInactiveContributors() {
 
     // Initialize Octokit
     const octokit = new Octokit({
-      auth: token,
+      auth: githubToken,
       request: {
           fetch: fetch
       }

@@ -41,5 +41,4 @@ jobs:
         working-directory: scripts
         run: node index.js
         env:
-          WEB_Token: ${{ secrets.WEB_Token }}
-          inactivityPeriodInMinutes: ${{ inputs.inactivityPeriodInMinutes }}
+          token: ${{ secrets.WEB_Token }}
