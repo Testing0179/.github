@@ -5,7 +5,7 @@ import fetch from 'node-fetch';
 async function run() {
   try {
     // Get token from github.token default or input
-    const token = core.getInput('github_token') || core.getInput('token') || process.env.GITHUB_TOKEN;
+    const token = core.getInput('github_token') || core.getInput('token');
     
     if (!token) {
       throw new Error('No authentication token provided. Please ensure GITHUB_TOKEN is set in the workflow.');

@@ -41,4 +41,4 @@ jobs:
         working-directory: scripts
         run: node index.js
         env:
-          token: ${{ secrets.WEB_Token }}
+          WEB_Token: ${{ secrets.WEB_Token }}
