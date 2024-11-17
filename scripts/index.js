@@ -5,7 +5,7 @@ import fetch from 'node-fetch';
 async function unassignInactiveContributors() {
   try {
     // Retrieve inputs and secrets
-    const githubToken = core.getInput("token", { required: true });
+    const githubToken = core.getInput('token');
     const inactivityPeriodInMinutes = 1;
 
     // Validate inputs
