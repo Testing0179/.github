@@ -4,18 +4,16 @@ import fetch from 'node-fetch';
 
 async function run() {
   try {
-    // Get token from environment variables
-    const token = process.env.WEB_Token;  // Changed to WEB_Token
+
+    const token = process.env.WEB_Token;  
     
     if (!token) {
       throw new Error('No authentication token provided. Please ensure WEB_Token is set in the workflow.');
     }
 
-    console.log('Token exists:', !!token); // Debug log for token existence
 
     const inactivityPeriodInMinutes = 1;
 
-    // Get repository context from environment
     const repository = process.env.GITHUB_REPOSITORY;
     if (!repository) {
       throw new Error('GITHUB_REPOSITORY environment variable is not set');
@@ -24,7 +22,6 @@ async function run() {
     const [owner, repo] = repository.split('/');
     console.log(`Processing repository: ${owner}/${repo}`);
 
-    // Initialize Octokit with authentication
     const octokit = new Octokit({
       auth: token,
       request: {
@@ -32,7 +29,6 @@ async function run() {
       }
     });
 
-    // Verify authentication
     try {
       const authUser = await octokit.rest.users.getAuthenticated();
       console.log('Successfully authenticated with GitHub as:', authUser.data.login);
@@ -41,7 +37,6 @@ async function run() {
       throw new Error(`Authentication failed: ${authError.message}. Please check your token permissions.`);
     }
 
-    // List open issues
     const issues = await octokit.rest.issues.listForRepo({
       owner,
       repo,
@@ -61,7 +56,6 @@ async function run() {
           console.log(`Processing issue #${issue.number} assigned to @${assignee.login}`);
           
           try {
-            // Unassign user
             await octokit.rest.issues.update({
               owner,
               repo,
@@ -71,7 +65,6 @@ async function run() {
 
             console.log(`Successfully unassigned user from issue #${issue.number}`);
 
-            // Add comment
             await octokit.rest.issues.createComment({
               owner,
               repo,
