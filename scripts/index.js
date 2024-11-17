@@ -11,7 +11,7 @@ async function run() {
       throw new Error('No authentication token provided. Please ensure WEB_Token is set in the workflow.');
     }
 
-    const inactivityPeriodInMinutes = 10;
+    const inactivityPeriodInMinutes = 1;
 
     const repository = process.env.GITHUB_REPOSITORY;
     if (!repository) {
