@@ -53,35 +53,104 @@ async function run() {
         continue;
       }
 
-      // Check if issue has linked PRs
-      const hasLinkedPR = async () => {
+      console.log(`\nChecking issue #${issue.number}:`);
+      console.log('Issue data:', {
+        number: issue.number,
+        title: issue.title,
+        assignee: assignee.login,
+        has_pr_field: !!issue.pull_request,
+        updated_at: issue.updated_at
+      });
+
+      // Check for linked PRs using multiple methods
+      const checkLinkedPRs = async () => {
         try {
-          // Get timeline events for the issue
-          const timeline = await octokit.rest.issues.listEvents({
-            owner,
-            repo,
-            issue_number: issue.number
-          });
-
-          // Check for cross-reference events that link to PRs
-          const linkedPRs = timeline.data.filter(event => 
-            event.event === 'cross-referenced' && 
-            event.source?.issue?.pull_request
-          );
-
-          // If there are any linked PRs, check if they're open
-          for (const prEvent of linkedPRs) {
-            const prUrl = prEvent.source.issue.pull_request.url;
-            const prResponse = await octokit.request(`GET ${prUrl}`);
-            if (prResponse.data.state === 'open') {
-              console.log(`Issue #${issue.number} has an open PR linked to it`);
-              return true;
-            }
+          // Method 1: Check direct PR field
+          if (issue.pull_request) {
+            console.log(`Issue #${issue.number} is a pull request`);
+            return true;
           }
 
+          // Method 2: Check timeline events
+          const timeline = await octokit.rest.issues.listEventsForTimeline({
+            owner,
+            repo,
+            issue_number: issue.number,
+            per_page: 100
+          });
+
+          console.log(`Timeline events for issue #${issue.number}:`, 
+            timeline.data.map(event => ({
+              event: event.event,
+              type: event.event_type,
+              actor: event.actor?.login,
+              created_at: event.created_at
+            }))
+          );
+
+          // Look for various PR-related events
+          const hasPRLink = timeline.data.some(event => 
+            event.event === 'cross-referenced' ||
+            event.event === 'connected' ||
+            event.event === 'referenced' ||
+            (event.source && event.source.type === 'pull_request')
+          );
+
+          if (hasPRLink) {
+            console.log(`Issue #${issue.number} has PR links in timeline`);
+            return true;
+          }
+
+          // Method 3: Check issue body for PR links
+          const prLinkRegex = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#\d+/i;
+          if (issue.body && prLinkRegex.test(issue.body)) {
+            console.log(`Issue #${issue.number} has PR references in body`);
+            return true;
+          }
+
+          // Method 4: Check for PR relationships
+          try {
+            const linkedItems = await octokit.graphql(`
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  issue(number: $number) {
+                    timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
+                      nodes {
+                        ... on CrossReferencedEvent {
+                          source {
+                            ... on PullRequest {
+                              number
+                              state
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `, {
+              owner,
+              repo,
+              number: issue.number
+            });
+
+            const hasOpenPR = linkedItems?.repository?.issue?.timelineItems?.nodes?.some(
+              node => node?.source?.state === 'OPEN'
+            );
+
+            if (hasOpenPR) {
+              console.log(`Issue #${issue.number} has linked PRs from GraphQL query`);
+              return true;
+            }
+          } catch (graphqlError) {
+            console.log('GraphQL query failed:', graphqlError);
+          }
+
+          console.log(`No PR links found for issue #${issue.number}`);
           return false;
         } catch (error) {
-          console.error(`Error checking PR status for issue #${issue.number}:`, error);
+          console.error(`Error checking PR links for issue #${issue.number}:`, error);
           return false;
         }
       };
@@ -90,14 +159,15 @@ async function run() {
       const now = new Date();
       
       if (now - lastActivity > inactivityPeriodInMinutes * 60 * 1000) {
-        console.log(`Checking issue #${issue.number} assigned to @${assignee.login}`);
+        const hasLinkedPR = await checkLinkedPRs();
         
-        // Skip if there's an open linked PR
-        if (await hasLinkedPR()) {
-          console.log(`Skipping issue #${issue.number} as it has an open linked PR`);
+        if (hasLinkedPR) {
+          console.log(`Skipping issue #${issue.number} as it has linked PR(s)`);
           continue;
         }
 
+        console.log(`Processing inactive issue #${issue.number} with no linked PRs`);
+        
         try {
           // Unassign user
           await octokit.rest.issues.update({
