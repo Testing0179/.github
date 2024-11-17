@@ -4,16 +4,18 @@ import fetch from 'node-fetch';
 
 async function run() {
   try {
-    // Get token from github.token default or input
-    const token = core.getInput('github_token') || core.getInput('token');
+    // Get token from environment variables
+    const token = process.env.WEB_Token;  // Changed to WEB_Token
     
     if (!token) {
-      throw new Error('No authentication token provided. Please ensure GITHUB_TOKEN is set in the workflow.');
+      throw new Error('No authentication token provided. Please ensure WEB_Token is set in the workflow.');
     }
+
+    console.log('Token exists:', !!token); // Debug log for token existence
 
     const inactivityPeriodInMinutes = 1;
 
-    // Get repository context
+    // Get repository context from environment
     const repository = process.env.GITHUB_REPOSITORY;
     if (!repository) {
       throw new Error('GITHUB_REPOSITORY environment variable is not set');
@@ -24,7 +26,7 @@ async function run() {
 
     // Initialize Octokit with authentication
     const octokit = new Octokit({
-      auth: `token ${token}`,
+      auth: token,
       request: {
         fetch: fetch
       }
@@ -32,9 +34,10 @@ async function run() {
 
     // Verify authentication
     try {
-      await octokit.rest.users.getAuthenticated();
-      console.log('Successfully authenticated with GitHub');
+      const authUser = await octokit.rest.users.getAuthenticated();
+      console.log('Successfully authenticated with GitHub as:', authUser.data.login);
     } catch (authError) {
+      console.error('Authentication error details:', authError);
       throw new Error(`Authentication failed: ${authError.message}. Please check your token permissions.`);
     }
 
@@ -78,6 +81,7 @@ async function run() {
 
             console.log(`Added comment to issue #${issue.number}`);
           } catch (issueError) {
+            console.error('Full error details:', issueError);
             console.error(`Error processing issue #${issue.number}:`, issueError.message);
             if (issueError.status === 403) {
               throw new Error('Token lacks necessary permissions. Ensure it has "issues" and "write" access.');
@@ -88,6 +92,7 @@ async function run() {
     }
     
   } catch (error) {
+    console.error('Full error details:', error);
     console.error('Action failed:', error.message);
     core.setFailed(error.message);
   }

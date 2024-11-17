@@ -8,6 +8,9 @@ on:
         description: "GitHub token for authentication"
         required: true
 
+permissions:
+  issues: write
+
 jobs:
   unassign_inactive_issue:
     runs-on: ubuntu-latest
@@ -41,4 +44,4 @@ jobs:
         working-directory: scripts
         run: node index.js
         env:
-          WEB_Token: ${{ secrets.WEB_Token }}
+          WEB_Token: ${{ secrets.WEB_Token }}  # Changed back to WEB_Token
