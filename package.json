@@ -1,19 +1,7 @@
 {
-  "name": "scripts",
-  "version": "1.0.0",
-  "main": "scripts/index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "type": "module",
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@octokit/rest": "^21.0.2",
-    "dotenv": "^16.4.5",
     "node-fetch": "^3.3.2"
   }
 }
