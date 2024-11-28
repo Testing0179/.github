@@ -44,6 +44,8 @@ async function run() {
       state: 'open',
       per_page: 100,
     });
+    console.log(issues);
+    
 
     console.log(`Found ${issues.data.length} open issues`);
 
