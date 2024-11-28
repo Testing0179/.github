@@ -51,7 +51,7 @@ async function run() {
 
     for (const issue of issues.data) {
       const assignee = issue.assignee;
-      if (!assignee || assignee.site_admin) {
+      if (!assignee || assignee.site_admin || issue.author_association == 'OWNER'|| issue.author_association == 'MEMBER' ) {
         continue;
       }
 
