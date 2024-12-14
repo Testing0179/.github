@@ -1,6 +1,6 @@
-import { Octokit } from '@octokit/rest';
-import * as core from '@actions/core';
-import fetch from 'node-fetch';
+const { Octokit } = require('@octokit/rest');
+const core = require('@actions/core');
+const fetch = require('node-fetch');
 
 async function run() {
   try {
