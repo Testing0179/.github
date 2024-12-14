@@ -52,8 +52,11 @@ async function run() {
 
     for (const issue of issues.data) {
       const assignee = issue.assignee;
-      if (!assignee || assignee.site_admin || issue.author_association == 'OWNER'|| issue.author_association == 'MEMBER' ) {
+      //|| issue.author_association == 'OWNER'|| issue.author_association == 'MEMBER'
+      if (!assignee || assignee.site_admin ) {
+        console.log('continuing');
         continue;
+
       }
 
       console.log(`\nChecking issue #${issue.number}:`);
