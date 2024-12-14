@@ -30,6 +30,36 @@ async function run() {
       }
     });
 
+    // Function to check user membership and ownership
+    const checkUserMembership = async (owner, repo, username) => {
+      try {
+        // Check if the user is an owner of the repository
+        const repoDetails = await octokit.rest.repos.get({
+          owner,
+          repo
+        });
+
+        // Check if the repository owner matches the username
+        if (repoDetails.data.owner.login === username) {
+          return true; // User is the repository owner
+        }
+
+        // Check if the user is an organization member
+        try {
+          const membershipResponse = await octokit.rest.orgs.getMembershipForUser({
+            org: owner,
+            username: username
+          });
+          return true; // User is a member
+        } catch (orgError) {
+          return false; // Not a member
+        }
+      } catch (error) {
+        console.error(`Error checking user membership for ${username}:`, error);
+        return false;
+      }
+    };
+
     try {
       const authUser = await octokit.rest.users.getAuthenticated();
       console.log('Successfully authenticated with GitHub as:', authUser.data.login);
@@ -50,8 +80,9 @@ async function run() {
     for (const issue of issues.data) {
       const assignee = issue.assignee;
       
-      if (!assignee || assignee.site_admin) {
-        console.log('continuing');
+      // Modified check to include user membership, ownership, and role verification
+      if (!assignee || assignee.site_admin || await checkUserMembership(owner, repo, assignee.login)) {
+        console.log('Skipping unassignment due to user role');
         continue;
       }
 
