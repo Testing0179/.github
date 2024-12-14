@@ -1,9 +1,10 @@
-const { Octokit } = require('@octokit/rest');
 const core = require('@actions/core');
 const fetch = require('node-fetch');
 
 async function run() {
   try {
+    const { Octokit } = await import('@octokit/rest');
+
     const token = process.env.WEB_Token;
     
     if (!token) {
