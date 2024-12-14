@@ -105,11 +105,8 @@ async function run() {
                 pull_number: ref.source.issue.number
               });
               
-              // Only add PR if it's open
-              if (prDetails.data.state === 'open') {
-                console.log(`Found open PR #${prDetails.data.number} in timeline`);
-                linkedPRs.push(prDetails.data);
-              }
+              // Add PR to list
+              linkedPRs.push(prDetails.data);
             } catch (prFetchError) {
               console.error(`Error fetching PR details:`, prFetchError);
             }
@@ -128,11 +125,8 @@ async function run() {
                 pull_number: prNumber
               });
               
-              // Only add PR if it's open
-              if (prDetails.data.state === 'open') {
-                console.log(`Found open PR #${prDetails.data.number} in issue body`);
-                linkedPRs.push(prDetails.data);
-              }
+              // Add PR to list
+              linkedPRs.push(prDetails.data);
             } catch (prFetchError) {
               console.error(`Error fetching PR from body link:`, prFetchError);
             }
