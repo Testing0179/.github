@@ -45,18 +45,14 @@ async function run() {
       state: 'open',
       per_page: 100,
     });
-    console.log(issues);
-    
-
     console.log(`Found ${issues.data.length} open issues`);
 
     for (const issue of issues.data) {
       const assignee = issue.assignee;
-      //|| issue.author_association == 'OWNER'|| issue.author_association == 'MEMBER'
-      if (!assignee || assignee.site_admin ) {
+      
+      if (!assignee || assignee.site_admin) {
         console.log('continuing');
         continue;
-
       }
 
       console.log(`\nChecking issue #${issue.number}:`);
@@ -68,16 +64,22 @@ async function run() {
         updated_at: issue.updated_at
       });
 
-      // Check for linked PRs using multiple methods
+      // Enhanced PR checking function
       const checkLinkedPRs = async () => {
         try {
           // Method 1: Check direct PR field
+          let linkedPRs = [];
           if (issue.pull_request) {
-            console.log(`Issue #${issue.number} is a pull request`);
-            return true;
+            const prNumber = issue.pull_request.number;
+            const prDetails = await octokit.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: prNumber
+            });
+            linkedPRs.push(prDetails.data);
           }
 
-          // Method 2: Check timeline events
+          // Method 2: Check timeline events for PR references with status check
           const timeline = await octokit.rest.issues.listEventsForTimeline({
             owner,
             repo,
@@ -85,36 +87,67 @@ async function run() {
             per_page: 100
           });
 
-          console.log(`Timeline events for issue #${issue.number}:`, 
-            timeline.data.map(event => ({
-              event: event.event,
-              type: event.event_type,
-              actor: event.actor?.login,
-              created_at: event.created_at
-            }))
+          // Find PR references in timeline
+          const prReferences = timeline.data.filter(event => 
+            (event.event === 'cross-referenced' || 
+             event.event === 'connected' || 
+             event.event === 'referenced') && 
+            event.source && 
+            event.source.type === 'pull_request'
           );
 
-          // Look for various PR-related events
-          const hasPRLink = timeline.data.some(event => 
-            event.event === 'cross-referenced' ||
-            event.event === 'connected' ||
-            event.event === 'referenced' ||
-            (event.source && event.source.type === 'pull_request')
-          );
-
-          if (hasPRLink) {
-            console.log(`Issue #${issue.number} has PR links in timeline`);
-            return true;
+          // Fetch details for each referenced PR and check its status
+          for (const ref of prReferences) {
+            try {
+              const prDetails = await octokit.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: ref.source.issue.number
+              });
+              
+              // Only add PR if it's open
+              if (prDetails.data.state === 'open') {
+                console.log(`Found open PR #${prDetails.data.number} in timeline`);
+                linkedPRs.push(prDetails.data);
+              }
+            } catch (prFetchError) {
+              console.error(`Error fetching PR details:`, prFetchError);
+            }
           }
 
           // Method 3: Check issue body for PR links
-          const prLinkRegex = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#\d+/i;
-          if (issue.body && prLinkRegex.test(issue.body)) {
-            console.log(`Issue #${issue.number} has PR references in body`);
+          const prLinkRegex = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#(\d+)/gi;
+          const bodyMatches = [...(issue.body || '').matchAll(prLinkRegex)];
+          
+          for (const match of bodyMatches) {
+            try {
+              const prNumber = match[1];
+              const prDetails = await octokit.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: prNumber
+              });
+              
+              // Only add PR if it's open
+              if (prDetails.data.state === 'open') {
+                console.log(`Found open PR #${prDetails.data.number} in issue body`);
+                linkedPRs.push(prDetails.data);
+              }
+            } catch (prFetchError) {
+              console.error(`Error fetching PR from body link:`, prFetchError);
+            }
+          }
+
+          // Check if any linked PRs are open
+          const openPRs = linkedPRs.filter(pr => pr.state === 'open');
+          
+          if (openPRs.length > 0) {
+            console.log(`Issue #${issue.number} has open PRs:`, 
+              openPRs.map(pr => `#${pr.number} (${pr.state})`));
             return true;
           }
 
-          console.log(`No PR links found for issue #${issue.number}`);
+          console.log(`No open linked PRs found for issue #${issue.number}`);
           return false;
         } catch (error) {
           console.error(`Error checking PR links for issue #${issue.number}:`, error);
@@ -126,14 +159,14 @@ async function run() {
       const now = new Date();
       
       if (now - lastActivity > inactivityPeriodInMinutes * 60 * 1000) {
-        const hasLinkedPR = await checkLinkedPRs();
+        const hasOpenPRs = await checkLinkedPRs();
         
-        if (hasLinkedPR) {
-          console.log(`Skipping issue #${issue.number} as it has linked PR(s)`);
+        if (hasOpenPRs) {
+          console.log(`Skipping issue #${issue.number} as it has open PRs`);
           continue;
         }
 
-        console.log(`Processing inactive issue #${issue.number} with no linked PRs`);
+        console.log(`Processing inactive issue #${issue.number} with no open PRs`);
         
         try {
           // Unassign user
