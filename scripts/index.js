@@ -1,5 +1,5 @@
 const core = require('@actions/core');
-const fetch = require('node-fetch');
+const fetch = require('node-fetch-native');
 
 async function run() {
   try {
