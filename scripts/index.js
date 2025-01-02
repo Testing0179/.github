@@ -126,13 +126,7 @@ async function run() {
       
 
       console.log(`\nChecking issue #${issue.number}:`);
-      console.log('Issue data:', {
-        number: issue.number,
-        title: issue.title,
-        assignee: assignee.login,
-        has_pr_field: !!issue.pull_request,
-        updated_at: issue.updated_at
-      });
+      
 
       // Enhanced PR checking function
       const checkLinkedPRs = async () => {
