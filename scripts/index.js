@@ -31,15 +31,17 @@ async function run() {
     const [owner, repo] = repository.split('/');
     console.log(`Processing repository: ${owner}/${repo}`);
 
+    // Function to send Slack notification via webhook
 
     async function sendSlackNotification(unassignments) {
       if (unassignments.length === 0) return;
 
       try {
         let message = "Automatically unassigned:\n";
-        unassignments.forEach(({ user, repo, issueNumber }) => {
-          message += `• '${user}' from ${repo}#${issueNumber}\n`;
-        });
+      unassignments.forEach(({ user, repo, issueNumber, owner }) => {
+      const issueUrl = `https://github.com/${owner}/${repo}/issues/${issueNumber}`;
+      message += `• '${user}' from <${issueUrl}|${repo}#${issueNumber}>\n`;
+    });
 
         const response = await fetch(slackWebhookUrl, {
           method: 'POST',
@@ -55,7 +57,6 @@ async function run() {
         console.log('Slack notification sent successfully');
       } catch (error) {
         console.error('Error sending Slack notification:', error);
-        // Don't throw the error to prevent disrupting the main workflow
       }
     }
 
@@ -253,6 +254,7 @@ async function run() {
           unassignments.push({
             user: assignee.login,
             repo: repo,
+            owner: owner,  
             issueNumber: issue.number
           });
 
