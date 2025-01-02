@@ -6,12 +6,20 @@ async function run() {
     const { Octokit } = await import('@octokit/rest');
 
     const token = process.env.WEB_Token;
+    const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
     
     if (!token) {
       throw new Error('No authentication token provided. Please ensure WEB_Token is set in the workflow.');
     }
 
+    if (!slackWebhookUrl) {
+      throw new Error('Slack webhook URL missing. Please ensure SLACK_WEBHOOK_URL is set in the workflow.');
+    }
+
     console.log('Token exists:', !!token);
+    console.log('Slack webhook URL exists:', !!slackWebhookUrl);
+
+    const unassignments = [];
 
     const inactivityPeriodInMinutes = 1;
 
@@ -22,6 +30,34 @@ async function run() {
 
     const [owner, repo] = repository.split('/');
     console.log(`Processing repository: ${owner}/${repo}`);
+
+
+    async function sendSlackNotification(unassignments) {
+      if (unassignments.length === 0) return;
+
+      try {
+        let message = "Automatically unassigned:\n";
+        unassignments.forEach(({ user, repo, issueNumber }) => {
+          message += `• '${user}' from ${repo}#${issueNumber}\n`;
+        });
+
+        const response = await fetch(slackWebhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ text: message })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        console.log('Slack notification sent successfully');
+      } catch (error) {
+        console.error('Error sending Slack notification:', error);
+        // Don't throw the error to prevent disrupting the main workflow
+      }
+    }
 
     const octokit = new Octokit({
       auth: token,
@@ -213,6 +249,13 @@ async function run() {
           });
 
           console.log(`Added comment to issue #${issue.number}`);
+
+          unassignments.push({
+            user: assignee.login,
+            repo: repo,
+            issueNumber: issue.number
+          });
+
         } catch (issueError) {
           console.error('Full error details:', issueError);
           console.error(`Error processing issue #${issue.number}:`, issueError.message);
@@ -222,6 +265,11 @@ async function run() {
         }
       }
     }
+
+    if (unassignments.length > 0) {
+      await sendSlackNotification(unassignments);
+    }
+
     
   } catch (error) {
     console.error('Full error details:', error);
