@@ -7,6 +7,9 @@ on:
       WEB_Token:
         description: "GitHub token for authentication"
         required: true
+      SLACK_WEBHOOK_URL:
+        description: "Slack webhook URL for notifications"
+        required: true
 
 permissions:
   issues: write
