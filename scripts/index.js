@@ -115,6 +115,8 @@ async function run() {
     console.log(`Found ${issues.data.length} open issues`);
 
     for (const issue of issues.data) {
+      console.log(issue);
+      
       const assignee = issue.assignee;
       
       // Modified check to include user membership, ownership, and role verification
