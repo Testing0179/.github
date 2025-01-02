@@ -117,13 +117,13 @@ async function run() {
     for (const issue of issues.data) {
       console.log(issue);
       
-      const assignee = issue.assignee;
+
+      const assignees = issue.assignees || [];
+      if (assignees.length === 0) continue;
+
       
-      // Modified check to include user membership, ownership, and role verification
-      if (!assignee || assignee.site_admin || await checkUserMembership(owner, repo, assignee.login)) {
-        console.log('Skipping unassignment due to user role');
-        continue;
-      }
+      
+      
 
       console.log(`\nChecking issue #${issue.number}:`);
       console.log('Issue data:', {
@@ -231,33 +231,50 @@ async function run() {
         }
 
         console.log(`Processing inactive issue #${issue.number} with no open PRs`);
-        
+
+        const inactiveAssignees = [];
+        const activeAssignees = [];
+
+        for (const assignee of assignees) {
+          // Modified check to include user membership, ownership, and role verification
+          if (assignee.site_admin || await checkUserMembership(owner, repo, assignee.login)) {
+            activeAssignees.push(assignee.login);
+            continue;
+          }
+          inactiveAssignees.push(assignee.login);
+        }
+
+        if (inactiveAssignees.length === 0) continue;
+
         try {
           // Unassign user
           await octokit.rest.issues.update({
             owner,
             repo,
             issue_number: issue.number,
-            assignees: [],
+            assignees: activeAssignees,
           });
 
           console.log(`Successfully unassigned user from issue #${issue.number}`);
 
-          // Add comment
+          // Add comment for each inactive assignee
+          const mentionList = inactiveAssignees.map(login => `@${login}`).join(', ');
           await octokit.rest.issues.createComment({
             owner,
             repo,
             issue_number: issue.number,
-            body: `Automatically unassigning @${assignee.login} due to inactivity. @${assignee.login}, if you're still interested in this issue or already have work in progress, please message us here, and we'll assign you again. Thank you!`,
+            body: `Automatically unassigning ${mentionList} due to inactivity.${mentionList} , If you're still interested in this issue or already have work in progress, please message us here, and we'll assign you again. Thank you!`,
           });
 
           console.log(`Added comment to issue #${issue.number}`);
 
-          unassignments.push({
-            user: assignee.login,
-            repo: repo,
-            owner: owner,  
-            issueNumber: issue.number
+          inactiveAssignees.forEach(login => {
+            unassignments.push({
+              user: login,
+              repo,
+              owner,
+              issueNumber: issue.number
+            });
           });
 
         } catch (issueError) {
