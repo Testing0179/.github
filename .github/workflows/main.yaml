@@ -18,27 +18,24 @@ jobs:
   unassign_inactive_issue:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout called repository
+      - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          repository: learningequality/.github
-          ref: main
-          token: ${{ secrets.WEB_Token }}
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '16'
       
       - name: Install dependencies
-        run: npm install @actions/github @actions/core @octokit/rest
+        working-directory: .github/workflows/scripts
+        run: npm install @actions/github @actions/core @octokit/rest node-fetch-native
       
       - name: Run unassign script
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.WEB_Token }}
           script: |
-            const script = require('./scripts/unassign-inactive-issues.js');
+            const script = require('./.github/workflows/scripts/index.js');
             await script({github, context, core});
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
