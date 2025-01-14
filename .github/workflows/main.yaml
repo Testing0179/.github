@@ -21,31 +21,24 @@ jobs:
       - name: Checkout called repository
         uses: actions/checkout@v3
         with:
-          repository: SukhvirKooner/.github
+          repository: learningequality/.github
           ref: main
           token: ${{ secrets.WEB_Token }}
-
-      - name: Set up Node.js
+      
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '16'
-
-      - name: Debug directory
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "Directory contents:"
-          ls -la
-          echo "Scripts directory contents:"
-          ls -la scripts
-
+      
       - name: Install dependencies
-        working-directory: scripts
-        run: npm install
-
-      - name: Run unassign-inactive-issues action
-        working-directory: scripts
-        run: node index.js
+        run: npm install @actions/github @actions/core @octokit/rest
+      
+      - name: Run unassign script
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.WEB_Token }}
+          script: |
+            const script = require('./scripts/unassign-inactive-issues.js');
+            await script({github, context, core});
         env:
-          WEB_Token: ${{ secrets.WEB_Token }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}  
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
