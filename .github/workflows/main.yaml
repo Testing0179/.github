@@ -30,15 +30,24 @@ jobs:
         with:
           node-version: '16'
       
+      - name: Debug directory
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Directory contents:"
+          ls -la
+          echo "Scripts directory contents:"
+          ls -la scripts
+          
       - name: Install dependencies
-        run: npm install @actions/github @actions/core @octokit/rest
+        run: npm install 
       
       - name: Run unassign script
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.WEB_Token }}
           script: |
-            const script = require('./scripts/unassign-inactive-issues.js');
+            const script = require('../../scripts/unassign-inactive-issues.js');
             await script({github, context, core});
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
