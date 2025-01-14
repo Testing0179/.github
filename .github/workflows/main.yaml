@@ -27,14 +27,16 @@ jobs:
           node-version: '16'
       
       - name: Install dependencies
-        run: npm install @actions/github @actions/core @octokit/rest node-fetch-native
+        run: npm install
       
       - name: Run unassign script
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.WEB_Token }}
           script: |
-            const script = require('./scripts/index.js');
+            const path = require('path');
+            const scriptPath = path.join(process.env.GITHUB_WORKSPACE, 'scripts', 'index.js');
+            const script = require(scriptPath);
             await script({github, context, core});
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
