@@ -4,7 +4,9 @@ module.exports = async ({github, context, core}) => {
   try {
     const token = process.env.WEB_Token;
     const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
+    console.log("github",github);
     console.log("context",context);
+    console.log("core",core);
     
     if (!token) {
       throw new Error('No authentication token provided. Please ensure WEB_Token is set in the workflow.');
@@ -20,7 +22,7 @@ module.exports = async ({github, context, core}) => {
     const unassignments = [];
     const inactivityPeriodInMinutes = 1;
 
-    const [owner, repo] = context.repo.repository.split('/');
+    const [owner, repo] = context.payload.repository.full_name.split('/');
     console.log(`Processing repository: ${owner}/${repo}`);
 
     // Function to send Slack notification via webhook
