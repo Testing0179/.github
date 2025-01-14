@@ -45,15 +45,38 @@ jobs:
       
       - name: Install dependencies
         run: npm install
+
+      - name: Debug Directory Structure
+        run: |
+          echo "Current directory contents:"
+          ls -la
+          echo "\nScripts directory contents:"
+          ls -la scripts/
+          echo "\nGitHub Workspace: $GITHUB_WORKSPACE"
       
       - name: Run unassign script
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.WEB_Token }}
           script: |
+            const fs = require('fs');
             const path = require('path');
+            
+            // Log the workspace and script path
+            console.log('GitHub Workspace:', process.env.GITHUB_WORKSPACE);
             const scriptPath = path.join(process.env.GITHUB_WORKSPACE, 'scripts', 'index.js');
-            const script = require(scriptPath);
-            await script({github, context, core});
+            console.log('Script Path:', scriptPath);
+            
+            // Check if file exists
+            if (fs.existsSync(scriptPath)) {
+              console.log('Script file found!');
+              const script = require(scriptPath);
+              await script({github, context, core});
+            } else {
+              console.error('Script file not found at:', scriptPath);
+              console.log('Directory contents:', fs.readdirSync(process.env.GITHUB_WORKSPACE));
+              console.log('Scripts directory contents:', fs.readdirSync(path.join(process.env.GITHUB_WORKSPACE, 'scripts')));
+              throw new Error('Script file not found');
+            }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
