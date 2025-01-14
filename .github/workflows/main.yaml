@@ -27,6 +27,7 @@ jobs:
           node-version: '16'
       
       - name: Install dependencies
+        working-directory: ./GITHUB
         run: npm install
       
       - name: Run unassign script
