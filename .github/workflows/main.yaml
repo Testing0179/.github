@@ -18,34 +18,27 @@ jobs:
   unassign_inactive_issue:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout called repository
         uses: actions/checkout@v3
-
+        with:
+          repository: SukhvirKooner/.github
+          ref: main
+          token: ${{ secrets.WEB_Token }}
+      
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '16'
       
-       - name: Debug directory
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "Directory contents:"
-          ls -la
-          echo "Scripts directory contents:"
-          ls -la scripts
-      
       - name: Install dependencies
-        run: npm install
+        run: npm install @actions/github @actions/core @octokit/rest
       
       - name: Run unassign script
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.WEB_Token }}
           script: |
-            const path = require('path');
-            const scriptPath = path.join(process.env.GITHUB_WORKSPACE, 'scripts', 'index.js');
-            const script = require(scriptPath);
+            const script = require('./scripts/unassign-inactive-issues.js');
             await script({github, context, core});
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
