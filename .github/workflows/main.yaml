@@ -27,7 +27,6 @@ jobs:
           node-version: '16'
       
       - name: Install dependencies
-        working-directory: .github/workflows/scripts
         run: npm install @actions/github @actions/core @octokit/rest node-fetch-native
       
       - name: Run unassign script
@@ -35,7 +34,7 @@ jobs:
         with:
           github-token: ${{ secrets.WEB_Token }}
           script: |
-            const script = require('./.github/workflows/scripts/index.js');
+            const script = require('./scripts/index.js');
             await script({github, context, core});
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
