@@ -26,57 +26,26 @@ jobs:
         with:
           node-version: '16'
       
-      - name: Create package.json
+       - name: Debug directory
         run: |
-          cat > package.json << 'EOF'
-          {
-            "name": "unassign-inactive-issues",
-            "version": "1.0.0",
-            "description": "GitHub Action to unassign inactive issues",
-            "main": "scripts/index.js",
-            "dependencies": {
-              "@actions/core": "^1.10.0",
-              "@actions/github": "^5.1.1",
-              "@octokit/rest": "^19.0.7",
-              "node-fetch-native": "^1.2.0"
-            }
-          }
-          EOF
+          echo "Current directory:"
+          pwd
+          echo "Directory contents:"
+          ls -la
+          echo "Scripts directory contents:"
+          ls -la scripts
       
       - name: Install dependencies
         run: npm install
-
-      - name: Debug Directory Structure
-        run: |
-          echo "Current directory contents:"
-          ls -la
-          echo "\nScripts directory contents:"
-          ls -la scripts/
-          echo "\nGitHub Workspace: $GITHUB_WORKSPACE"
       
       - name: Run unassign script
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.WEB_Token }}
           script: |
-            const fs = require('fs');
             const path = require('path');
-            
-            // Log the workspace and script path
-            console.log('GitHub Workspace:', process.env.GITHUB_WORKSPACE);
             const scriptPath = path.join(process.env.GITHUB_WORKSPACE, 'scripts', 'index.js');
-            console.log('Script Path:', scriptPath);
-            
-            // Check if file exists
-            if (fs.existsSync(scriptPath)) {
-              console.log('Script file found!');
-              const script = require(scriptPath);
-              await script({github, context, core});
-            } else {
-              console.error('Script file not found at:', scriptPath);
-              console.log('Directory contents:', fs.readdirSync(process.env.GITHUB_WORKSPACE));
-              console.log('Scripts directory contents:', fs.readdirSync(path.join(process.env.GITHUB_WORKSPACE, 'scripts')));
-              throw new Error('Script file not found');
-            }
+            const script = require(scriptPath);
+            await script({github, context, core});
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
