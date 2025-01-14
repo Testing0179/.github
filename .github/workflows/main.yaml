@@ -26,22 +26,22 @@ jobs:
         with:
           node-version: '16'
       
-      - name: Create package.json if not exists
+      - name: Create package.json
         run: |
-          if [ ! -f "package.json" ]; then
-            echo '${{ toJSON({
-              "name": "unassign-inactive-issues",
-              "version": "1.0.0",
-              "description": "GitHub Action to unassign inactive issues",
-              "main": "scripts/index.js",
-              "dependencies": {
-                "@actions/core": "^1.10.0",
-                "@actions/github": "^5.1.1",
-                "@octokit/rest": "^19.0.7",
-                "node-fetch-native": "^1.2.0"
-              }
-            }) }}' > package.json
-          fi
+          cat > package.json << 'EOF'
+          {
+            "name": "unassign-inactive-issues",
+            "version": "1.0.0",
+            "description": "GitHub Action to unassign inactive issues",
+            "main": "scripts/index.js",
+            "dependencies": {
+              "@actions/core": "^1.10.0",
+              "@actions/github": "^5.1.1",
+              "@octokit/rest": "^19.0.7",
+              "node-fetch-native": "^1.2.0"
+            }
+          }
+          EOF
       
       - name: Install dependencies
         run: npm install
