@@ -4,6 +4,9 @@ module.exports = async ({github, context, core}) => {
   try {
     const token = process.env.WEB_Token;
     const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
+    console.log("github",github);
+    console.log("context",context);
+    console.log("core",core);
     
     if (!token) {
       throw new Error('No authentication token provided. Please ensure WEB_Token is set in the workflow.');
