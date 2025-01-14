@@ -45,9 +45,9 @@ jobs:
       - name: Run unassign script
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.WEB_Token }}
           script: |
             const script = require('./scripts/unassign-inactive-issues.js');
             await script({github, context, core});
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          WEB_Token: ${{ secrets.WEB_Token }}
