@@ -2,18 +2,12 @@ const fetch = require('node-fetch-native');
 
 module.exports = async ({github, context, core}) => {
   try {
-    const token = process.env.WEB_Token;
     const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
     
-    if (!token) {
-      throw new Error('No authentication token provided. Please ensure WEB_Token is set in the workflow.');
-    }
-
     if (!slackWebhookUrl) {
       throw new Error('Slack webhook URL missing. Please ensure SLACK_WEBHOOK_URL is set in the workflow.');
     }
 
-    console.log('Token exists:', !!token);
     console.log('Slack webhook URL exists:', !!slackWebhookUrl);
 
     const unassignments = [];
@@ -80,9 +74,10 @@ module.exports = async ({github, context, core}) => {
       }
     };
 
+    // Verify authentication first
     try {
-      const authUser = await github.rest.users.getAuthenticated();
-      console.log('Successfully authenticated with GitHub as:', authUser.data.login);
+      const { data: authUser } = await github.rest.users.getAuthenticated();
+      console.log('Successfully authenticated with GitHub as:', authUser.login);
     } catch (authError) {
       console.error('Authentication error details:', authError);
       throw new Error(`Authentication failed: ${authError.message}. Please check your token permissions.`);
@@ -98,8 +93,6 @@ module.exports = async ({github, context, core}) => {
     console.log(`Found ${issues.data.length} open issues`);
 
     for (const issue of issues.data) {
-      console.log(issue);
-      
       const assignees = issue.assignees || [];
       if (assignees.length === 0) continue;
 
@@ -110,11 +103,10 @@ module.exports = async ({github, context, core}) => {
         try {
           let linkedPRs = [];
           if (issue.pull_request) {
-            const prNumber = issue.pull_request.number;
             const prDetails = await github.rest.pulls.get({
               owner,
               repo,
-              pull_number: prNumber
+              pull_number: issue.pull_request.number
             });
             linkedPRs.push(prDetails.data);
           }
@@ -144,23 +136,6 @@ module.exports = async ({github, context, core}) => {
               linkedPRs.push(prDetails.data);
             } catch (prFetchError) {
               console.error(`Error fetching PR details:`, prFetchError);
-            }
-          }
-
-          const prLinkRegex = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#(\d+)/gi;
-          const bodyMatches = [...(issue.body || '').matchAll(prLinkRegex)];
-          
-          for (const match of bodyMatches) {
-            try {
-              const prNumber = match[1];
-              const prDetails = await github.rest.pulls.get({
-                owner,
-                repo,
-                pull_number: prNumber
-              });
-              linkedPRs.push(prDetails.data);
-            } catch (prFetchError) {
-              console.error(`Error fetching PR from body link:`, prFetchError);
             }
           }
 
@@ -221,7 +196,7 @@ module.exports = async ({github, context, core}) => {
             owner,
             repo,
             issue_number: issue.number,
-            body: `Automatically unassigning ${mentionList} due to inactivity.${mentionList} , If you're still interested in this issue or already have work in progress, please message us here, and we'll assign you again. Thank you!`,
+            body: `Automatically unassigning ${mentionList} due to inactivity. ${mentionList}, If you're still interested in this issue or already have work in progress, please message us here, and we'll assign you again. Thank you!`,
           });
 
           console.log(`Added comment to issue #${issue.number}`);

@@ -11,8 +11,12 @@ on:
         description: "Slack webhook URL for notifications"
         required: true
 
+# Update permissions to include all necessary scopes
 permissions:
   issues: write
+  contents: read
+  pull-requests: read
+  organizations: read
 
 jobs:
   unassign_inactive_issue:
@@ -38,16 +42,34 @@ jobs:
           ls -la
           echo "Scripts directory contents:"
           ls -la scripts
+      
+      - name: Debug token permissions
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.WEB_Token }}
+          script: |
+            try {
+              const { data } = await github.rest.users.getAuthenticated();
+              console.log('Authenticated as:', data.login);
+              
+              const { data: scopes } = await github.rest.users.checkFollowing({
+                username: data.login
+              });
+              console.log('Token scopes:', scopes);
+            } catch (error) {
+              console.error('Token verification failed:', error);
+            }
 
+      
       - name: Install dependencies
         run: npm install 
       
       - name: Run unassign script
         uses: actions/github-script@v6
         with:
+          github-token: ${{ secrets.WEB_Token }}  # Pass token directly here
           script: |
             const script = require('./scripts/unassign-inactive-issues.js');
             await script({github, context, core});
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          WEB_Token: ${{ secrets.WEB_Token }}
