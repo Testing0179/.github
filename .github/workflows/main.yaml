@@ -18,6 +18,10 @@ permissions:
   issues: write
   contents: read
   pull-requests: read
+  repository-projects: read
+  metadata: read        # Add this
+  actions: read         # Add this
+
   
 jobs:
   unassign_inactive_issue:
