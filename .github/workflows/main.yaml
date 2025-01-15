@@ -23,7 +23,6 @@ jobs:
         with:
           repository: SukhvirKooner/.github
           ref: main
-          token: ${{ secrets.WEB_Token }}
       
       - name: Generate App Token
         id: generate-token
