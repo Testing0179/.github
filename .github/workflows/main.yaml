@@ -11,13 +11,6 @@ on:
         description: "Slack webhook URL for notifications"
         required: true
 
-# Update permissions to include all necessary scopes
-permissions:
-  issues: write
-  contents: read
-  pull-requests: read
-  organizations: read
-
 jobs:
   unassign_inactive_issue:
     runs-on: ubuntu-latest
