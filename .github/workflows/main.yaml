@@ -45,10 +45,13 @@ jobs:
               const { data } = await github.rest.users.getAuthenticated();
               console.log('Authenticated as:', data.login);
               
-              const { data: scopes } = await github.rest.users.checkFollowing({
-                username: data.login
+              // Get repository information to verify access
+              const { data: repo } = await github.rest.repos.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo
               });
-              console.log('Token scopes:', scopes);
+              console.log('Successfully accessed repository:', repo.full_name);
+              
             } catch (error) {
               console.error('Token verification failed:', error);
             }
