@@ -74,7 +74,7 @@ module.exports = async ({github, context, core}) => {
       }
     };
 
-    // Verify authentication first
+    // Verify authentication
     try {
       const { data: authUser } = await github.rest.users.getAuthenticated();
       console.log('Successfully authenticated with GitHub as:', authUser.login);
@@ -136,6 +136,24 @@ module.exports = async ({github, context, core}) => {
               linkedPRs.push(prDetails.data);
             } catch (prFetchError) {
               console.error(`Error fetching PR details:`, prFetchError);
+            }
+          }
+
+          // Check for PR references in the issue body
+          const prLinkRegex = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#(\d+)/gi;
+          const bodyMatches = [...(issue.body || '').matchAll(prLinkRegex)];
+          
+          for (const match of bodyMatches) {
+            try {
+              const prNumber = match[1];
+              const prDetails = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: prNumber
+              });
+              linkedPRs.push(prDetails.data);
+            } catch (prFetchError) {
+              console.error(`Error fetching PR from body link:`, prFetchError);
             }
           }
 
