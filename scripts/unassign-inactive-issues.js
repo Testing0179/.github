@@ -13,9 +13,6 @@ module.exports = async ({github, context, core}) => {
       throw new Error('Slack webhook URL missing. Please ensure SLACK_WEBHOOK_URL is set in the workflow.');
     }
 
-    // Configure Octokit with the token
-    const octokit = github.getOctokit(token);
-
     console.log('Token exists:', !!token);
     console.log('Slack webhook URL exists:', !!slackWebhookUrl);
 
@@ -24,14 +21,6 @@ module.exports = async ({github, context, core}) => {
 
     const [owner, repo] = context.payload.repository.full_name.split('/');
     console.log(`Processing repository: ${owner}/${repo}`);
-
-    try {
-      const { data: authUser } = await octokit.rest.users.getAuthenticated();
-      console.log('Successfully authenticated with GitHub as:', authUser.login);
-    } catch (authError) {
-      console.error('Authentication error details:', authError);
-      throw new Error(`Authentication failed: ${authError.message}. Please check your token permissions.`);
-    }
 
     // Function to send Slack notification via webhook
     async function sendSlackNotification(unassignments) {
@@ -65,7 +54,7 @@ module.exports = async ({github, context, core}) => {
     const checkUserMembership = async (owner, repo, username) => {
       try {
         // Check if the user is an owner of the repository
-        const repoDetails = await octokit.rest.repos.get({
+        const repoDetails = await github.rest.repos.get({
           owner,
           repo
         });
@@ -77,7 +66,7 @@ module.exports = async ({github, context, core}) => {
 
         // Check if the user is an organization member
         try {
-          const membershipResponse = await octokit.rest.orgs.getMembershipForUser({
+          const membershipResponse = await github.rest.orgs.getMembershipForUser({
             org: owner,
             username: username
           });
@@ -92,7 +81,7 @@ module.exports = async ({github, context, core}) => {
     };
 
     try {
-      const authUser = await octokit.rest.users.getAuthenticated();
+      const authUser = await github.rest.users.getAuthenticated();
       console.log('Successfully authenticated with GitHub as:', authUser.data.login);
     } catch (authError) {
       console.error('Authentication error details:', authError);
@@ -100,7 +89,7 @@ module.exports = async ({github, context, core}) => {
     }
 
     // List open issues
-    const issues = await octokit.rest.issues.listForRepo({
+    const issues = await github.rest.issues.listForRepo({
       owner,
       repo,
       state: 'open',
@@ -122,7 +111,7 @@ module.exports = async ({github, context, core}) => {
           let linkedPRs = [];
           if (issue.pull_request) {
             const prNumber = issue.pull_request.number;
-            const prDetails = await octokit.rest.pulls.get({
+            const prDetails = await github.rest.pulls.get({
               owner,
               repo,
               pull_number: prNumber
@@ -130,7 +119,7 @@ module.exports = async ({github, context, core}) => {
             linkedPRs.push(prDetails.data);
           }
 
-          const timeline = await octokit.rest.issues.listEventsForTimeline({
+          const timeline = await github.rest.issues.listEventsForTimeline({
             owner,
             repo,
             issue_number: issue.number,
@@ -147,7 +136,7 @@ module.exports = async ({github, context, core}) => {
 
           for (const ref of prReferences) {
             try {
-              const prDetails = await octokit.rest.pulls.get({
+              const prDetails = await github.rest.pulls.get({
                 owner,
                 repo,
                 pull_number: ref.source.issue.number
@@ -164,7 +153,7 @@ module.exports = async ({github, context, core}) => {
           for (const match of bodyMatches) {
             try {
               const prNumber = match[1];
-              const prDetails = await octokit.rest.pulls.get({
+              const prDetails = await github.rest.pulls.get({
                 owner,
                 repo,
                 pull_number: prNumber
@@ -218,7 +207,7 @@ module.exports = async ({github, context, core}) => {
         if (inactiveAssignees.length === 0) continue;
 
         try {
-          await octokit.rest.issues.update({
+          await github.rest.issues.update({
             owner,
             repo,
             issue_number: issue.number,
@@ -228,7 +217,7 @@ module.exports = async ({github, context, core}) => {
           console.log(`Successfully unassigned user from issue #${issue.number}`);
 
           const mentionList = inactiveAssignees.map(login => `@${login}`).join(', ');
-          await octokit.rest.issues.createComment({
+          await github.rest.issues.createComment({
             owner,
             repo,
             issue_number: issue.number,
