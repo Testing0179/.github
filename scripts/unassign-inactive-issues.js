@@ -15,6 +15,22 @@ module.exports = async ({github, context, core}) => {
 
     const [owner, repo] = context.payload.repository.full_name.split('/');
     console.log(`Processing repository: ${owner}/${repo}`);
+    try {
+      // Test API access by getting repository details
+      const { data: repository } = await github.rest.repos.get({
+        owner,
+        repo
+      });
+      console.log('Successfully authenticated with GitHub App and verified repository access');
+      console.log(`Repository: ${repository.full_name}`);
+    } catch (authError) {
+      console.error('Authentication error details:', {
+        message: authError.message,
+        status: authError.status,
+        documentation_url: authError.documentation_url
+      });
+      throw new Error(`Repository access failed. Please check your GitHub App permissions for repository access. Error: ${authError.message}`);
+    }
 
     // Function to send Slack notification via webhook
     async function sendSlackNotification(unassignments) {
@@ -75,13 +91,13 @@ module.exports = async ({github, context, core}) => {
     };
 
     // Verify authentication
-    try {
-      const { data: authUser } = await github.rest.users.getAuthenticated();
-      console.log('Successfully authenticated with GitHub as:', authUser.login);
-    } catch (authError) {
-      console.error('Authentication error details:', authError);
-      throw new Error(`Authentication failed: ${authError.message}. Please check your token permissions.`);
-    }
+    // try {
+    //   const { data: authUser } = await github.rest.users.getAuthenticated();
+    //   console.log('Successfully authenticated with GitHub as:', authUser.login);
+    // } catch (authError) {
+    //   console.error('Authentication error details:', authError);
+    //   throw new Error(`Authentication failed: ${authError.message}. Please check your token permissions.`);
+    // }
 
     // List open issues
     const issues = await github.rest.issues.listForRepo({
