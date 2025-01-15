@@ -17,8 +17,7 @@ permissions:
   issues: write
   contents: read
   pull-requests: read
-  organization: read
-  
+
 jobs:
   unassign_inactive_issue:
     runs-on: ubuntu-latest
