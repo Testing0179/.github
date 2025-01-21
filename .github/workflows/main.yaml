@@ -14,8 +14,6 @@ on:
         description: "Slack webhook URL for notifications"
         required: true
       
-
-  
 jobs:
   unassign_inactive_issue:
     runs-on: ubuntu-latest
@@ -60,4 +58,3 @@ jobs:
             await script({github, context, core});
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}  # Add this line

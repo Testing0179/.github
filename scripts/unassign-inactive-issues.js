@@ -90,15 +90,6 @@ module.exports = async ({github, context, core}) => {
       }
     };
 
-    // Verify authentication
-    // try {
-    //   const { data: authUser } = await github.rest.users.getAuthenticated();
-    //   console.log('Successfully authenticated with GitHub as:', authUser.login);
-    // } catch (authError) {
-    //   console.error('Authentication error details:', authError);
-    //   throw new Error(`Authentication failed: ${authError.message}. Please check your token permissions.`);
-    // }
-
     // List open issues
     const issues = await github.rest.issues.listForRepo({
       owner,
