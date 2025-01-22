@@ -57,9 +57,5 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           payload: |
             {
-              "text": "Automatically unassigned:\n${{ 
-                fromJSON(steps.unassign.outputs.unassignments) 
-                | map(format('• %s from <%s|%s#%s>', .user, .issueUrl, .repo, .issueNumber)) 
-                | join('\n') 
-              }}"
-            }
+              "text": "Automatically unassigned users from issues:\n${{ toJSON(steps.unassign.outputs.unassignments) }}"
+            } 

@@ -210,8 +210,21 @@ module.exports = async ({github, context, core}) => {
       }
     }
 
-    // Set output for use with Slack API action
-    core.setOutput('unassignments', JSON.stringify(unassignments));
+    const formatUnassignments = (unassignments) => {
+      return unassignments.map(({ user, issueUrl, repo, issueNumber }) => 
+        `• ${user} from <${issueUrl}|${repo}#${issueNumber}>`
+      ).join('\n');
+    };
+    
+    module.exports = async ({github, context, core}) => {
+      try {
+        const unassignments = await script({github, context, core});
+        const formattedMessage = formatUnassignments(unassignments);
+        core.setOutput('unassignments', formattedMessage);
+      } catch (error) {
+        core.setFailed(error.message);
+      }
+    };
     
   } catch (error) {
     console.error('Full error details:', error);
