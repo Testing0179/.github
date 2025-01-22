@@ -2,14 +2,6 @@ const fetch = require('node-fetch-native');
 
 module.exports = async ({github, context, core}) => {
   try {
-    const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
-    
-    if (!slackWebhookUrl) {
-      throw new Error('Slack webhook URL missing. Please ensure SLACK_WEBHOOK_URL is set in the workflow.');
-    }
-
-    console.log('Slack webhook URL exists:', !!slackWebhookUrl);
-
     const unassignments = [];
     const inactivityPeriodInMinutes = 1;
 
@@ -32,34 +24,6 @@ module.exports = async ({github, context, core}) => {
       throw new Error(`Repository access failed. Please check your GitHub App permissions for repository access. Error: ${authError.message}`);
     }
 
-    // Function to send Slack notification via webhook
-    async function sendSlackNotification(unassignments) {
-      if (unassignments.length === 0) return;
-
-      try {
-        let message = "Automatically unassigned:\n";
-        unassignments.forEach(({ user, repo, issueNumber, owner }) => {
-          const issueUrl = `https://github.com/${owner}/${repo}/issues/${issueNumber}`;
-          message += `• '${user}' from <${issueUrl}|${repo}#${issueNumber}>\n`;
-        });
-
-        const response = await fetch(slackWebhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ text: message })
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        console.log('Slack notification sent successfully');
-      } catch (error) {
-        console.error('Error sending Slack notification:', error);
-      }
-    }
-
     // Function to check user membership and ownership
     const checkUserMembership = async (owner, repo, username) => {
       try {
@@ -76,7 +40,7 @@ module.exports = async ({github, context, core}) => {
 
         // Check if the user is an organization member
         try {
-          const membershipResponse = await github.rest.orgs.getMembershipForUser({
+          await github.rest.orgs.getMembershipForUser({
             org: owner,
             username: username
           });
@@ -231,7 +195,8 @@ module.exports = async ({github, context, core}) => {
               user: login,
               repo,
               owner,
-              issueNumber: issue.number
+              issueNumber: issue.number,
+              issueUrl: `https://github.com/${owner}/${repo}/issues/${issue.number}`
             });
           });
 
@@ -245,9 +210,8 @@ module.exports = async ({github, context, core}) => {
       }
     }
 
-    if (unassignments.length > 0) {
-      await sendSlackNotification(unassignments);
-    }
+    // Set output for use with Slack API action
+    core.setOutput('unassignments', JSON.stringify(unassignments));
     
   } catch (error) {
     console.error('Full error details:', error);
