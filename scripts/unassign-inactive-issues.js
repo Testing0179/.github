@@ -22,7 +22,7 @@ const formatUnassignments = (unassignments) => {
   // Format the grouped unassignments
   return Object.values(groupedByIssue)
     .map(({ users, repo, issueNumber, issueUrl }) => 
-      `• ${users.map(u => `@${u}`).join(', ')} from <${issueUrl}|${repo}#${issueNumber}>`
+      `• ${users.map(u => `@${u}`).join(', ')} from <${issueUrl}|${repo}#${issueNumber}>\n`
     )
     .join('\n');
 };

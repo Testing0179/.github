@@ -57,5 +57,5 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           payload: |
             {
-              "text": "*\nThe following users have been unassigned due to inactivity:\n${{ steps.unassign.outputs.unassignments }}"
+              "text": "\nThe following users have been unassigned due to inactivity:\n${{ steps.unassign.outputs.unassignments }}"
             }
