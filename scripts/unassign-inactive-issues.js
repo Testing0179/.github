@@ -1,5 +1,32 @@
 const fetch = require('node-fetch-native');
 
+const formatUnassignments = (unassignments) => {
+  if (unassignments.length === 0) return '';
+  
+  // Group unassignments by issue
+  const groupedByIssue = unassignments.reduce((acc, curr) => {
+    const key = `${curr.repo}#${curr.issueNumber}`;
+    if (!acc[key]) {
+      acc[key] = {
+        repo: curr.repo,
+        owner: curr.owner,
+        issueNumber: curr.issueNumber,
+        issueUrl: curr.issueUrl,
+        users: []
+      };
+    }
+    acc[key].users.push(curr.user);
+    return acc;
+  }, {});
+
+  // Format the grouped unassignments
+  return Object.values(groupedByIssue)
+    .map(({ users, repo, issueNumber, issueUrl }) => 
+      `• ${users.map(u => `@${u}`).join(', ')} from <${issueUrl}|${repo}#${issueNumber}>`
+    )
+    .join('\n');
+};
+
 module.exports = async ({github, context, core}) => {
   try {
     const unassignments = [];
@@ -7,6 +34,7 @@ module.exports = async ({github, context, core}) => {
 
     const [owner, repo] = context.payload.repository.full_name.split('/');
     console.log(`Processing repository: ${owner}/${repo}`);
+    
     try {
       // Test API access by getting repository details
       const { data: repository } = await github.rest.repos.get({
@@ -210,25 +238,18 @@ module.exports = async ({github, context, core}) => {
       }
     }
 
-    const formatUnassignments = (unassignments) => {
-      return unassignments.map(({ user, issueUrl, repo, issueNumber }) => 
-        `• ${user} from <${issueUrl}|${repo}#${issueNumber}>`
-      ).join('\n');
-    };
-    
-    module.exports = async ({github, context, core}) => {
-      try {
-        const unassignments = await script({github, context, core});
-        const formattedMessage = formatUnassignments(unassignments);
-        core.setOutput('unassignments', formattedMessage);
-      } catch (error) {
-        core.setFailed(error.message);
-      }
-    };
-    
+    const formattedUnassignments = formatUnassignments(unassignments);
+    try {
+    core.setOutput('unassignments', formattedUnassignments);
+    return formattedUnassignments;
+    }catch (error){
+      core.setFailed(error.message);
+    }
+
   } catch (error) {
     console.error('Full error details:', error);
     console.error('Action failed:', error.message);
     core.setFailed(error.message);
+    return '';
   }
 };
