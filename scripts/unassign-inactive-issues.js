@@ -24,8 +24,43 @@ const formatUnassignments = (unassignments) => {
     .map(({ users, repo, issueNumber, issueUrl }) => 
       `• ${users.map(u => `@${u}`).join(', ')} from <${issueUrl}|${repo}#${issueNumber}>\n`
     )
-    .join('\n');
 };
+
+async function getAllIssues(github, owner, repo) {
+  const allIssues = [];
+  let page = 1;
+  const perPage = 100;
+  
+  while (true) {
+    console.log(`Fetching page ${page} of issues...`);
+    
+    const response = await github.rest.issues.listForRepo({
+      owner,
+      repo,
+      state: 'open',
+      per_page: perPage,
+      page: page
+    });
+    
+    const issues = response.data;
+    
+    if (issues.length === 0) {
+      break; // No more issues to fetch
+    }
+    
+    allIssues.push(...issues);
+    console.log(`Fetched ${issues.length} issues from page ${page}`);
+    
+    if (issues.length < perPage) {
+      break; // Last page has fewer items than perPage
+    }
+    
+    page++;
+  }
+  
+  console.log(`Total issues fetched: ${allIssues.length}`);
+  return allIssues;
+}
 
 module.exports = async ({github, context, core}) => {
   try {
@@ -82,16 +117,11 @@ module.exports = async ({github, context, core}) => {
       }
     };
 
-    // List open issues
-    const issues = await github.rest.issues.listForRepo({
-      owner,
-      repo,
-      state: 'open',
-      per_page: 100,
-    });
-    console.log(`Found ${issues.data.length} open issues`);
+    // Get all issues using pagination
+    const issues = await getAllIssues(github, owner, repo);
+    console.log(`Processing ${issues.length} open issues`);
 
-    for (const issue of issues.data) {
+    for (const issue of issues) {
       const assignees = issue.assignees || [];
       if (assignees.length === 0) continue;
 
