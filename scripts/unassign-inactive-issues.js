@@ -24,7 +24,7 @@ const formatUnassignments = (unassignments) => {
     .map(({ users, repo, issueNumber, issueUrl }) => 
       `• ${users.map(u => `@${u}`).join(', ')} from <${issueUrl}|${repo}#${issueNumber}>`
     )
-    .join('\n');
+    .join('\n\n');
 };
 
 async function getAllIssues(github, owner, repo) {
