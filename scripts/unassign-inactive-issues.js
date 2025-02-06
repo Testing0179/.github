@@ -141,15 +141,11 @@ module.exports = async ({github, context, core}) => {
             linkedPRs.push(prDetails.data);
           }
       
-          // Include the timeline preview header to get all events
           const timeline = await github.rest.issues.listEventsForTimeline({
             owner,
             repo,
             issue_number: issue.number,
-            per_page: 100,
-            headers: {
-              accept: 'application/vnd.github.mockingbird-preview+json'
-            }
+            per_page: 100
           });
       
           const prReferences = timeline.data.filter(event => 
@@ -173,8 +169,8 @@ module.exports = async ({github, context, core}) => {
             }
           }
       
-          // Check for PR references in the issue body using a regex
-          const prLinkRegex = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#(\d+)/gi;
+          // Check for PR references in the issue body with more flexible regex
+          const prLinkRegex = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\b[\s:]*#(\d+)/gi;
           const bodyMatches = [...(issue.body || '').matchAll(prLinkRegex)];
           
           for (const match of bodyMatches) {
@@ -191,10 +187,6 @@ module.exports = async ({github, context, core}) => {
             }
           }
       
-          // If you want to skip unassignment if any PR is referenced (regardless of state), do:
-          // if (linkedPRs.length > 0) { ... }
-      
-          // Or, if you only want to skip when there's an open PR, do:
           const openPRs = linkedPRs.filter(pr => pr.state === 'open');
           
           if (openPRs.length > 0) {
@@ -209,7 +201,7 @@ module.exports = async ({github, context, core}) => {
           console.error(`Error checking PR links for issue #${issue.number}:`, error);
           return false;
         }
-      };      
+      };
 
       const lastActivity = new Date(issue.updated_at);
       const now = new Date();
