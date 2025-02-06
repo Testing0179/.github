@@ -40,17 +40,20 @@ async function getAllIssues(github, owner, repo) {
       repo,
       state: 'open',
       per_page: perPage,
-      page: page
+      page: page,
+      filter: 'all',
+      // Add this parameter to exclude pull requests
+      pulls: false
     });
     
-    const issues = response.data;
+    const issues = response.data.filter(issue => !issue.pull_request);
     
     if (issues.length === 0) {
       break; // No more issues to fetch
     }
     
     allIssues.push(...issues);
-    console.log(`Fetched ${issues.length} issues from page ${page}`);
+    console.log(`Fetched ${issues.length} issues (excluding PRs) from page ${page}`);
     
     if (issues.length < perPage) {
       break; // Last page has fewer items than perPage
@@ -59,7 +62,7 @@ async function getAllIssues(github, owner, repo) {
     page++;
   }
   
-  console.log(`Total issues fetched: ${allIssues.length}`);
+  console.log(`Total issues fetched (excluding PRs): ${allIssues.length}`);
   return allIssues;
 }
 
