@@ -134,18 +134,29 @@ module.exports = async ({github, context, core}) => {
       // Enhanced PR checking function
       const checkLinkedPRs = async (issue, github, owner, repo) => {
         try {
+          if (!issue || !issue.number) {
+            console.error('Invalid issue object received:', issue);
+            return false;
+          }
+      
           let linkedPRs = [];
           console.log(`\nChecking linked PRs for issue #${issue.number}`);
       
           // Method 1: Check if the issue itself is a PR
           if (issue.pull_request) {
-            console.log(`Issue #${issue.number} is itself a PR`);
-            const prDetails = await github.rest.pulls.get({
-              owner,
-              repo,
-              pull_number: issue.number
-            });
-            linkedPRs.push(prDetails.data);
+            try {
+              console.log(`Issue #${issue.number} is itself a PR`);
+              const prDetails = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: issue.number
+              });
+              if (prDetails && prDetails.data) {
+                linkedPRs.push(prDetails.data);
+              }
+            } catch (prError) {
+              console.log(`Error fetching PR details for #${issue.number}:`, prError.message);
+            }
           }
       
           // Method 2: Search for PRs that mention this issue
@@ -157,49 +168,59 @@ module.exports = async ({github, context, core}) => {
               q: searchQuery
             });
       
-            const foundPRs = searchResult.data.items.filter(item => item.pull_request);
-            console.log(`Found ${foundPRs.length} PRs mentioning this issue through search`);
-            
-            for (const pr of foundPRs) {
-              try {
-                const prDetails = await github.rest.pulls.get({
-                  owner,
-                  repo,
-                  pull_number: pr.number
-                });
-                linkedPRs.push(prDetails.data);
-              } catch (e) {
-                console.log(`Error fetching PR #${pr.number} details:`, e.message);
+            if (searchResult && searchResult.data && searchResult.data.items) {
+              const foundPRs = searchResult.data.items.filter(item => item && item.pull_request);
+              console.log(`Found ${foundPRs.length} PRs mentioning this issue through search`);
+              
+              for (const pr of foundPRs) {
+                if (pr && pr.number) {
+                  try {
+                    const prDetails = await github.rest.pulls.get({
+                      owner,
+                      repo,
+                      pull_number: pr.number
+                    });
+                    if (prDetails && prDetails.data) {
+                      linkedPRs.push(prDetails.data);
+                    }
+                  } catch (e) {
+                    console.log(`Error fetching PR #${pr.number} details:`, e.message);
+                  }
+                }
               }
             }
           } catch (searchError) {
             console.log('Search API error:', searchError.message);
           }
       
-          // Method 3: Check issue body for PR references using various formats
-          const prReferences = [];
+          // Method 3: Check issue body for PR references
+          const prReferences = new Set();
           
-          // Common PR reference patterns
-          const patterns = [
+          if (issue.body) {
+            // Common PR reference patterns
+            const patterns = [
             // Standard GitHub reference
-            /#(\d+)/g,
+              /#(\d+)/g,
             // Full URL format
-            new RegExp(`https?://github\\.com/${owner}/${repo}/pull/(\\d+)`, 'g'),
+              new RegExp(`https?://github\\.com/${owner}/${repo}/pull/(\\d+)`, 'g'),
             // Closing keywords
-            /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s*:?\s*#(\d+)/gi
-          ];
+              /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s*:?\s*#(\d+)/gi
+            ];
       
-          for (const pattern of patterns) {
-            const matches = [...(issue.body || '').matchAll(pattern)];
-            for (const match of matches) {
-              const prNumber = parseInt(match[1]);
-              if (!prReferences.includes(prNumber)) {
-                prReferences.push(prNumber);
+            for (const pattern of patterns) {
+              const matches = [...issue.body.matchAll(pattern)];
+              for (const match of matches) {
+                if (match && match[1]) {
+                  const prNumber = parseInt(match[1], 10);
+                  if (!isNaN(prNumber)) {
+                    prReferences.add(prNumber);
+                  }
+                }
               }
             }
           }
       
-          console.log(`Found ${prReferences.length} PR references in issue body`);
+          console.log(`Found ${prReferences.size} PR references in issue body`);
       
           // Fetch PR details for each reference
           for (const prNumber of prReferences) {
@@ -209,7 +230,7 @@ module.exports = async ({github, context, core}) => {
                 repo,
                 pull_number: prNumber
               });
-              if (prDetails.data.state === 'open') {
+              if (prDetails && prDetails.data && prDetails.data.state === 'open') {
                 linkedPRs.push(prDetails.data);
               }
             } catch (e) {
@@ -218,10 +239,15 @@ module.exports = async ({github, context, core}) => {
           }
       
           // Remove duplicates based on PR number
-          linkedPRs = Array.from(new Set(linkedPRs.map(pr => pr.number)))
-            .map(number => linkedPRs.find(pr => pr.number === number));
+          const uniquePRs = new Map();
+          for (const pr of linkedPRs) {
+            if (pr && pr.number) {
+              uniquePRs.set(pr.number, pr);
+            }
+          }
+          linkedPRs = Array.from(uniquePRs.values());
       
-          const openPRs = linkedPRs.filter(pr => pr.state === 'open');
+          const openPRs = linkedPRs.filter(pr => pr && pr.state === 'open');
           
           if (openPRs.length > 0) {
             console.log(`Issue #${issue.number} has ${openPRs.length} open PRs:`, 
