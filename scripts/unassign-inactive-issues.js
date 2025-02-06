@@ -147,6 +147,8 @@ module.exports = async ({github, context, core}) => {
             issue_number: issue.number,
             per_page: 100
           });
+          console.log(timeline);
+          
       
           const prReferences = timeline.data.filter(event => 
             (event.event === 'cross-referenced' || 
