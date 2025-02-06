@@ -140,14 +140,18 @@ module.exports = async ({github, context, core}) => {
             });
             linkedPRs.push(prDetails.data);
           }
-
+      
+          // Include the timeline preview header to get all events
           const timeline = await github.rest.issues.listEventsForTimeline({
             owner,
             repo,
             issue_number: issue.number,
-            per_page: 100
+            per_page: 100,
+            headers: {
+              accept: 'application/vnd.github.mockingbird-preview+json'
+            }
           });
-
+      
           const prReferences = timeline.data.filter(event => 
             (event.event === 'cross-referenced' || 
              event.event === 'connected' || 
@@ -155,7 +159,7 @@ module.exports = async ({github, context, core}) => {
             event.source && 
             event.source.type === 'pull_request'
           );
-
+      
           for (const ref of prReferences) {
             try {
               const prDetails = await github.rest.pulls.get({
@@ -168,8 +172,8 @@ module.exports = async ({github, context, core}) => {
               console.error(`Error fetching PR details:`, prFetchError);
             }
           }
-
-          // Check for PR references in the issue body
+      
+          // Check for PR references in the issue body using a regex
           const prLinkRegex = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#(\d+)/gi;
           const bodyMatches = [...(issue.body || '').matchAll(prLinkRegex)];
           
@@ -186,7 +190,11 @@ module.exports = async ({github, context, core}) => {
               console.error(`Error fetching PR from body link:`, prFetchError);
             }
           }
-
+      
+          // If you want to skip unassignment if any PR is referenced (regardless of state), do:
+          // if (linkedPRs.length > 0) { ... }
+      
+          // Or, if you only want to skip when there's an open PR, do:
           const openPRs = linkedPRs.filter(pr => pr.state === 'open');
           
           if (openPRs.length > 0) {
@@ -194,14 +202,14 @@ module.exports = async ({github, context, core}) => {
               openPRs.map(pr => `#${pr.number} (${pr.state})`));
             return true;
           }
-
+      
           console.log(`No open linked PRs found for issue #${issue.number}`);
           return false;
         } catch (error) {
           console.error(`Error checking PR links for issue #${issue.number}:`, error);
           return false;
         }
-      };
+      };      
 
       const lastActivity = new Date(issue.updated_at);
       const now = new Date();
