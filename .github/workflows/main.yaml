@@ -28,7 +28,7 @@ jobs:
       - name: Checkout called repository
         uses: actions/checkout@v3
         with:
-          repository: SukhvirKooner/.github
+          repository: Testing0179/.github
           ref: main
           token: ${{ steps.generate-token.outputs.token }}  
 
