@@ -77,10 +77,10 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
       return false;
     }
 
-    let linkedPRs = [];
+    let linkedPRs = new Set();
     console.log(`\nChecking linked PRs for issue #${issue.number}`);
 
-    // Method 1: Check timeline for linked PRs
+    // Method 1: Check timeline with enhanced event handling
     try {
       console.log(`Checking timeline events for issue #${issue.number}`);
       const { data: timelineEvents } = await github.rest.issues.listEventsForTimeline({
@@ -90,47 +90,50 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
         per_page: 100
       });
 
-      console.log('Timeline events:', JSON.stringify(timelineEvents.map(event => ({
-        event: event.event,
-        type: event.event_type,
-        source: event.source?.type,
-        createdAt: event.created_at
-      })), null, 2));
-
       for (const event of timelineEvents) {
-        // Check for connected event (PR linked)
-        if (event.event === 'connected' && event.source?.type === 'pull_request') {
+        // Enhanced logging for debugging timeline events
+        console.log('Timeline event:', {
+          event: event.event,
+          sourceType: event?.source?.type,
+          sourceNumber: event?.source?.issue?.number,
+          state: event?.state,
+          eventType: event?.event_type
+        });
+
+        // Check for all possible PR linking scenarios
+        if (
+          // Standard connected/cross-referenced events
+          ((event.event === 'connected' || event.event === 'cross-referenced') && 
+           event?.source?.type === 'pull_request') ||
+          // Direct PR links
+          (event.event === 'referenced' && event?.commit_id && event?.source?.issue?.pull_request) ||
+          // Closing link events
+          (event.event === 'closed' && event?.commit_id && event?.source?.issue?.pull_request) ||
+          // Specific "linked" events that mention closing
+          (event.event === 'connected' && event?.source?.issue?.pull_request?.merged === false)
+        ) {
           try {
-            const prNumber = event.source.issue.number;
-            console.log(`Found connected PR #${prNumber} in timeline`);
-            const prDetails = await github.rest.pulls.get({
-              owner,
-              repo,
-              pull_number: prNumber
-            });
-            if (prDetails?.data?.state === 'open') {
-              linkedPRs.push(prDetails.data);
+            // Get the PR number from various possible locations
+            let prNumber = event?.source?.issue?.number;
+            if (!prNumber && event?.source?.pull_request?.number) {
+              prNumber = event.source.pull_request.number;
+            }
+
+            if (prNumber) {
+              console.log(`Checking PR #${prNumber} from timeline event`);
+              const { data: pr } = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: prNumber
+              });
+              
+              if (pr && pr.state === 'open') {
+                console.log(`Found valid linked PR #${prNumber} (${pr.state})`);
+                linkedPRs.add(prNumber);
+              }
             }
           } catch (e) {
-            console.log(`Error fetching connected PR details:`, e.message);
-          }
-        }
-        
-        // Check for cross-referenced event (PR mentioned)
-        if (event.event === 'cross-referenced' && event.source?.type === 'pull_request') {
-          try {
-            const prNumber = event.source.issue.number;
-            console.log(`Found cross-referenced PR #${prNumber} in timeline`);
-            const prDetails = await github.rest.pulls.get({
-              owner,
-              repo,
-              pull_number: prNumber
-            });
-            if (prDetails?.data?.state === 'open') {
-              linkedPRs.push(prDetails.data);
-            }
-          } catch (e) {
-            console.log(`Error fetching cross-referenced PR details:`, e.message);
+            console.log(`Error fetching PR details:`, e.message);
           }
         }
       }
