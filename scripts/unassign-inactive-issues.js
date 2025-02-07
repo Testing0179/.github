@@ -80,21 +80,62 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
     let linkedPRs = [];
     console.log(`\nChecking linked PRs for issue #${issue.number}`);
 
-    // Method 1: Check if the issue itself is a PR
-    if (issue.pull_request) {
-      try {
-        console.log(`Issue #${issue.number} is itself a PR`);
-        const prDetails = await github.rest.pulls.get({
-          owner,
-          repo,
-          pull_number: issue.number
-        });
-        if (prDetails && prDetails.data) {
-          linkedPRs.push(prDetails.data);
+    // Method 1: Check timeline for linked PRs
+    try {
+      console.log(`Checking timeline events for issue #${issue.number}`);
+      const { data: timelineEvents } = await github.rest.issues.listEventsForTimeline({
+        owner,
+        repo,
+        issue_number: issue.number,
+        per_page: 100
+      });
+
+      console.log('Timeline events:', JSON.stringify(timelineEvents.map(event => ({
+        event: event.event,
+        type: event.event_type,
+        source: event.source?.type,
+        createdAt: event.created_at
+      })), null, 2));
+
+      for (const event of timelineEvents) {
+        // Check for connected event (PR linked)
+        if (event.event === 'connected' && event.source?.type === 'pull_request') {
+          try {
+            const prNumber = event.source.issue.number;
+            console.log(`Found connected PR #${prNumber} in timeline`);
+            const prDetails = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: prNumber
+            });
+            if (prDetails?.data?.state === 'open') {
+              linkedPRs.push(prDetails.data);
+            }
+          } catch (e) {
+            console.log(`Error fetching connected PR details:`, e.message);
+          }
         }
-      } catch (prError) {
-        console.log(`Error fetching PR details for #${issue.number}:`, prError.message);
+        
+        // Check for cross-referenced event (PR mentioned)
+        if (event.event === 'cross-referenced' && event.source?.type === 'pull_request') {
+          try {
+            const prNumber = event.source.issue.number;
+            console.log(`Found cross-referenced PR #${prNumber} in timeline`);
+            const prDetails = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: prNumber
+            });
+            if (prDetails?.data?.state === 'open') {
+              linkedPRs.push(prDetails.data);
+            }
+          } catch (e) {
+            console.log(`Error fetching cross-referenced PR details:`, e.message);
+          }
+        }
       }
+    } catch (timelineError) {
+      console.error('Error fetching timeline:', timelineError.message);
     }
 
     // Method 2: Search for PRs that mention this issue
@@ -106,19 +147,19 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
         q: searchQuery
       });
 
-      if (searchResult && searchResult.data && searchResult.data.items) {
-        const foundPRs = searchResult.data.items.filter(item => item && item.pull_request);
+      if (searchResult?.data?.items) {
+        const foundPRs = searchResult.data.items.filter(item => item?.pull_request);
         console.log(`Found ${foundPRs.length} PRs mentioning this issue through search`);
         
         for (const pr of foundPRs) {
-          if (pr && pr.number) {
+          if (pr?.number) {
             try {
               const prDetails = await github.rest.pulls.get({
                 owner,
                 repo,
                 pull_number: pr.number
               });
-              if (prDetails && prDetails.data) {
+              if (prDetails?.data) {
                 linkedPRs.push(prDetails.data);
               }
             } catch (e) {
@@ -132,23 +173,18 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
     }
 
     // Method 3: Check issue body for PR references
-    const prReferences = new Set();
-    
     if (issue.body) {
-      // Common PR reference patterns
+      const prReferences = new Set();
       const patterns = [
-            // Standard GitHub reference
         /#(\d+)/g,
-            // Full URL format
         new RegExp(`https?://github\\.com/${owner}/${repo}/pull/(\\d+)`, 'g'),
-            // Closing keywords
         /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s*:?\s*#(\d+)/gi
       ];
 
       for (const pattern of patterns) {
         const matches = [...issue.body.matchAll(pattern)];
         for (const match of matches) {
-          if (match && match[1]) {
+          if (match?.[1]) {
             const prNumber = parseInt(match[1], 10);
             if (!isNaN(prNumber)) {
               prReferences.add(prNumber);
@@ -156,40 +192,33 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
           }
         }
       }
-    }
 
-    console.log(`Found ${prReferences.size} PR references in issue body`);
+      console.log(`Found ${prReferences.size} PR references in issue body`);
 
-    // Fetch PR details for each reference
-    for (const prNumber of prReferences) {
-      try {
-        const prDetails = await github.rest.pulls.get({
-          owner,
-          repo,
-          pull_number: prNumber
-        });
-        if (prDetails && prDetails.data && prDetails.data.state === 'open') {
-          linkedPRs.push(prDetails.data);
+      for (const prNumber of prReferences) {
+        try {
+          const prDetails = await github.rest.pulls.get({
+            owner,
+            repo,
+            pull_number: prNumber
+          });
+          if (prDetails?.data?.state === 'open') {
+            linkedPRs.push(prDetails.data);
+          }
+        } catch (e) {
+          console.log(`Error fetching PR #${prNumber}:`, e.message);
         }
-      } catch (e) {
-        console.log(`Error fetching PR #${prNumber}:`, e.message);
       }
     }
 
-    // Remove duplicates based on PR number
-    const uniquePRs = new Map();
-    for (const pr of linkedPRs) {
-      if (pr && pr.number) {
-        uniquePRs.set(pr.number, pr);
-      }
-    }
-    linkedPRs = Array.from(uniquePRs.values());
+    // Remove duplicates and check final results
+    const uniquePRs = Array.from(new Set(linkedPRs.map(pr => pr.number)))
+      .map(number => linkedPRs.find(pr => pr.number === number))
+      .filter(pr => pr?.state === 'open');
 
-    const openPRs = linkedPRs.filter(pr => pr && pr.state === 'open');
-    
-    if (openPRs.length > 0) {
-      console.log(`Issue #${issue.number} has ${openPRs.length} open PRs:`, 
-        openPRs.map(pr => `#${pr.number} (${pr.state})`));
+    if (uniquePRs.length > 0) {
+      console.log(`Issue #${issue.number} has ${uniquePRs.length} open linked PRs:`, 
+        uniquePRs.map(pr => `#${pr.number} (${pr.state})`));
       return true;
     }
 
