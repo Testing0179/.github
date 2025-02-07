@@ -313,7 +313,7 @@ module.exports = async ({github, context, core}) => {
 
         if (assignee.site_admin || await checkUserMembership(owner, repo, assignee.login, github)) {
           activeAssignees.push(assignee.login);
-          console.log(`${assignee.login} is an active member/admin, keeping assignment`);
+          console.log(`${assignee.login} is an active member, keeping assignment`);
         } else {
           inactiveAssignees.push(assignee.login);
           console.log(`${assignee.login} is inactive, will be unassigned`);
