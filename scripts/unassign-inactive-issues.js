@@ -21,10 +21,10 @@ const formatUnassignments = (unassignments) => {
 
   // Format the grouped unassignments
   return Object.values(groupedByIssue)
-    .map(({ users, repo, issueNumber, issueUrl }) => 
-      `• ${users.map(u => `@${u}`).join(', ')} from <${issueUrl}|${repo}#${issueNumber}>`
-    )
-    .join('\n\n');
+  .map(({ users, repo, issueNumber, issueUrl }) => 
+    `${users.map(u => `@${u}`).join(', ')} from <${issueUrl}|${repo}#${issueNumber}>`
+  )
+  .join(', ');  
 };
 
 async function getAllIssues(github, owner, repo) {
