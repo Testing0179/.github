@@ -248,28 +248,17 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
       }
     }
 
-    // Remove duplicates and check final results
-    const uniquePRs = Array.from(new Set(linkedPRs.map(pr => pr.number)))
-      .map(number => linkedPRs.find(pr => pr.number === number))
-      .filter(pr => pr?.state === 'open');
 
-    if (uniquePRs.length > 0) {
-      console.log(`Issue #${issue.number} has ${uniquePRs.length} open linked PRs:`, 
-        uniquePRs.map(pr => `#${pr.number} (${pr.state})`));
-      return true;
-    }
 
-    console.log(`No open linked PRs found for issue #${issue.number}`);
-    return false;
   } catch (error) {
     console.error(`Error in checkLinkedPRs for issue #${issue.number}:`, error);
     return false;
   }
 };
 
-module.exports = async ({github, context, core}) => {
-  // ... rest of the existing code ...
-};
+
+
+
 
 // Function to check user membership and ownership
 const checkUserMembership = async (owner, repo, username, github) => {
