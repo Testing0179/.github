@@ -80,65 +80,99 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
     let linkedPRs = new Set();
     console.log(`\nChecking linked PRs for issue #${issue.number}`);
 
-    // Method 1: Check timeline with enhanced event handling
+    // Method 1: Check timeline with enhanced connected event handling
     try {
       console.log(`Checking timeline events for issue #${issue.number}`);
+      
+      // First get all events (includes more details than timeline)
+      const { data: events } = await github.rest.issues.listEvents({
+        owner,
+        repo,
+        issue_number: issue.number,
+        per_page: 100
+      });
+
+      // Enhanced logging for all events
+      console.log('All events:', JSON.stringify(events.map(event => ({
+        event: event.event,
+        created_at: event.created_at,
+        id: event.id
+      })), null, 2));
+
+      for (const event of events) {
+        console.log(`Processing event:`, {
+          event: event.event,
+          id: event.id,
+          created_at: event.created_at
+        });
+
+        if (event.event === 'connected') {
+          try {
+            // Get the specific event details which contains the PR info
+            const { data: eventDetails } = await github.rest.issues.getEvent({
+              owner,
+              repo,
+              event_id: event.id
+            });
+
+            console.log('Connected event details:', JSON.stringify(eventDetails, null, 2));
+
+            if (eventDetails.source && eventDetails.source.issue) {
+              const prNumber = eventDetails.source.issue.number;
+              console.log(`Found connected PR #${prNumber}, checking if open`);
+
+              try {
+                const { data: pr } = await github.rest.pulls.get({
+                  owner,
+                  repo,
+                  pull_number: prNumber
+                });
+
+                if (pr && pr.state === 'open') {
+                  console.log(`Confirmed PR #${prNumber} is open`);
+                  linkedPRs.add(prNumber);
+                } else {
+                  console.log(`PR #${prNumber} is not open, state: ${pr?.state}`);
+                }
+              } catch (prError) {
+                console.log(`Error checking PR #${prNumber}:`, prError.message);
+              }
+            }
+          } catch (eventError) {
+            console.log(`Error fetching event details:`, eventError.message);
+          }
+        }
+      }
+
+      // Also check timeline for cross-references
       const { data: timelineEvents } = await github.rest.issues.listEventsForTimeline({
         owner,
         repo,
         issue_number: issue.number,
         per_page: 100
       });
-      console.log(timelineEvents);
-      
+
       for (const event of timelineEvents) {
-        //Enhanced logging for debugging timeline events
-        // console.log('Timeline event:', {
-        //   event: event.event,
-        //   sourceType: event?.source?.type,
-        //   sourceNumber: event?.source?.issue?.number,
-        //   state: event?.state,
-        //   eventType: event?.event_type
-        // });
-
-        // Check for all possible PR linking scenarios
-        if (
-          // Standard connected/cross-referenced events
-          (event.event === 'connected' || event.event === 'cross-referenced') ||
-          // Direct PR links
-          (event.event === 'referenced' && event?.commit_id && event?.source?.issue?.pull_request) ||
-          // Specific "linked" events that mention closing
-          (event.event === 'connected' && event?.source?.issue?.pull_request?.merged === false)
-        ) {
-          console.log('pr found connected pr found');
-          
+        if (event.event === 'cross-referenced' && event?.source?.type === 'pull_request') {
+          const prNumber = event.source.issue.number;
           try {
-            // Get the PR number from various possible locations
-            let prNumber = event?.source?.issue?.number;
-            if (!prNumber && event?.source?.pull_request?.number) {
-              prNumber = event.source.pull_request.number;
-            }
-
-            if (prNumber) {
-              console.log(`Checking PR #${prNumber} from timeline event`);
-              const { data: pr } = await github.rest.pulls.get({
-                owner,
-                repo,
-                pull_number: prNumber
-              });
-              
-              if (pr && pr.state === 'open') {
-                console.log(`Found valid linked PR #${prNumber} (${pr.state})`);
-                linkedPRs.add(prNumber);
-              }
+            const { data: pr } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: prNumber
+            });
+            
+            if (pr && pr.state === 'open') {
+              console.log(`Found open cross-referenced PR #${prNumber}`);
+              linkedPRs.add(prNumber);
             }
           } catch (e) {
-            console.log(`Error fetching PR details:`, e.message);
+            console.log(`Error checking cross-referenced PR #${prNumber}:`, e.message);
           }
         }
       }
     } catch (timelineError) {
-      console.error('Error fetching timeline:', timelineError.message);
+      console.error(`Error fetching events for issue #${issue.number}:`, timelineError.message);
     }
 
     // Method 2: Search for PRs that mention this issue
@@ -231,6 +265,10 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
     console.error(`Error in checkLinkedPRs for issue #${issue.number}:`, error);
     return false;
   }
+};
+
+module.exports = async ({github, context, core}) => {
+  // ... rest of the existing code ...
 };
 
 // Function to check user membership and ownership
