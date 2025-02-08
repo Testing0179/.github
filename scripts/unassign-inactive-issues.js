@@ -104,15 +104,14 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
         // Check for all possible PR linking scenarios
         if (
           // Standard connected/cross-referenced events
-          ((event.event === 'connected' || event.event === 'cross-referenced') && 
-           event?.source?.type === 'pull_request') ||
+          (event.event === 'connected' || event.event === 'cross-referenced') ||
           // Direct PR links
           (event.event === 'referenced' && event?.commit_id && event?.source?.issue?.pull_request) ||
-          // Closing link events
-          (event.event === 'closed' && event?.commit_id && event?.source?.issue?.pull_request) ||
           // Specific "linked" events that mention closing
           (event.event === 'connected' && event?.source?.issue?.pull_request?.merged === false)
         ) {
+          console.log('pr found connected pr found');
+          
           try {
             // Get the PR number from various possible locations
             let prNumber = event?.source?.issue?.number;
