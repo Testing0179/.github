@@ -69,11 +69,95 @@ async function getAllIssues(github, owner, repo) {
   console.log(`Total issues fetched (excluding PRs): ${allIssues.length}`);
   return allIssues;
 }
+/**
+ * New GraphQL-based function.
+ * This query fetches timeline items for an issue and extracts pull requests
+ * that were connected or cross-referenced (and which are open).
+ */
+const checkLinkedPRsGraphQL = async (issue, github, owner, repo) => {
+  const query = `
+    query($owner: String!, $repo: String!, $issueNumber: Int!) {
+      repository(owner: $owner, name: $repo) {
+        issue(number: $issueNumber) {
+          timelineItems(first: 50, itemTypes: [CONNECTED_EVENT, CROSS_REFERENCED_EVENT]) {
+            nodes {
+              __typename
+              ... on ConnectedEvent {
+                source {
+                  __typename
+                  ... on PullRequest {
+                    number
+                    state
+                  }
+                }
+              }
+              ... on CrossReferencedEvent {
+                source {
+                  __typename
+                  ... on PullRequest {
+                    number
+                    state
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+  try {
+    const variables = { owner, repo, issueNumber: issue.number };
+    const response = await github.graphql(query, variables);
+    let linkedPRs = new Set();
+    const nodes = response.repository.issue.timelineItems.nodes;
+    for (const node of nodes) {
+      if (node.__typename === "ConnectedEvent" || node.__typename === "CrossReferencedEvent") {
+        if (node.source && node.source.__typename === "PullRequest") {
+          const prNumber = node.source.number;
+          if (node.source.state === "OPEN") {
+            console.log(`GraphQL: Found linked PR #${prNumber} (state: ${node.source.state})`);
+            linkedPRs.add(prNumber);
+          } else {
+            console.log(`GraphQL: Found linked PR #${prNumber} (state: ${node.source.state}) but skipping because it is not open`);
+          }
+        }
+      }
+    }
+    return linkedPRs.size > 0 ? linkedPRs : false;
+  } catch (error) {
+    console.error(`GraphQL query error for issue #${issue.number}:`, error);
+    return false;
+  }
+};
 
 const checkLinkedPRs = async (issue, github, owner, repo) => {
   try {
     if (!issue || !issue.number) {
       console.error('Invalid issue object received:', issue);
+      return false;
+    }
+    try {
+      if (!issue || !issue.number) {
+        console.error('Invalid issue object received:', issue);
+        return false;
+      }
+  
+      // Here you can choose which method to use.
+      // For example, using the GraphQL API:
+      const linkedPRs = await checkLinkedPRsGraphQL(issue, github, owner, repo);
+      return linkedPRs;
+      
+      // Or, if you prefer to use the REST-based method,
+      // comment out the line above and use the code below.
+      /*
+      let linkedPRs = new Set();
+      console.log(`\nChecking linked PRs for issue #${issue.number}`);
+      // ... [rest of your REST-based logic] ...
+      return linkedPRs.size > 0 ? linkedPRs : false;
+      */
+    } catch (error) {
+      console.error(`Error in checkLinkedPRs for issue #${issue.number}:`, error);
       return false;
     }
 
