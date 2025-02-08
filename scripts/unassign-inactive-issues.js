@@ -89,17 +89,17 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
         issue_number: issue.number,
         per_page: 100
       });
-      console.log(timelineEvents);
+      //console.log(timelineEvents);
       
       for (const event of timelineEvents) {
-        // Enhanced logging for debugging timeline events
-        // console.log('Timeline event:', {
-        //   event: event.event,
-        //   sourceType: event?.source?.type,
-        //   sourceNumber: event?.source?.issue?.number,
-        //   state: event?.state,
-        //   eventType: event?.event_type
-        // });
+        //Enhanced logging for debugging timeline events
+        console.log('Timeline event:', {
+          event: event.event,
+          sourceType: event?.source?.type,
+          sourceNumber: event?.source?.issue?.number,
+          state: event?.state,
+          eventType: event?.event_type
+        });
 
         // Check for all possible PR linking scenarios
         if (
