@@ -112,7 +112,10 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
             const { data: eventDetails } = await github.rest.issues.getEvent({
               owner,
               repo,
-              event_id: event.id
+              event_id: event.id,
+              mediaType: {
+                previews: ['mockingbird']
+              }
             });
 
             console.log('Connected event details:', JSON.stringify(eventDetails, null, 2));
@@ -149,7 +152,10 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
         owner,
         repo,
         issue_number: issue.number,
-        per_page: 100
+        per_page: 100,
+        mediaType: {
+          previews: ['mockingbird']
+        }
       });
 
       for (const event of timelineEvents) {
@@ -248,8 +254,8 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
       }
     }
 
-
-
+    // Return the set of linked PR numbers (or false if none found)
+    return linkedPRs.size > 0 ? linkedPRs : false;
   } catch (error) {
     console.error(`Error in checkLinkedPRs for issue #${issue.number}:`, error);
     return false;
@@ -293,7 +299,7 @@ const checkUserMembership = async (owner, repo, username, github) => {
   }
 };
 
-module.exports = async ({github, context, core}) => {
+module.exports = async ({ github, context, core }) => {
   try {
     const unassignments = [];
     const inactivityPeriodInMinutes = 1;
