@@ -91,20 +91,14 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
       });
 
       for (const event of timelineEvents) {
-        console.log('Timeline event:', {
-          event: event.event,
-          sourceType: event?.source?.type,
-          sourceNumber: event?.source?.issue?.number,
-          state: event?.state,
-          eventType: event?.event_type
-        });
-
         if (
           (event.event === 'connected' || event.event === 'cross-referenced') ||
           (event.event === 'referenced' && event?.commit_id && event?.source?.issue?.pull_request) ||
           (event.event === 'closed' && event?.commit_id && event?.source?.issue?.pull_request) ||
           (event.event === 'connected' && event?.source?.issue?.pull_request?.merged === false)
         ) {
+          console.log('found found found');
+          
           try {
             let prNumber = event?.source?.issue?.number;
             if (!prNumber && event?.source?.pull_request?.number) {
@@ -213,10 +207,6 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
     return new Set(); // Return empty Set instead of false
   }
 };
-
-
-
-
 
 // Function to check user membership and ownership
 const checkUserMembership = async (owner, repo, username, github) => {
