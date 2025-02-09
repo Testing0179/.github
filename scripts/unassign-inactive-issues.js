@@ -78,11 +78,9 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
     }
 
     let linkedPRs = new Set();
-    console.log(`\nChecking linked PRs for issue #${issue.number}`);
 
     // Method 1: Check timeline with enhanced connected event handling
-    try {
-      console.log(`Checking timeline events for issue #${issue.number}`);
+    try { 
       const { data: timelineEvents } = await github.rest.issues.listEventsForTimeline({
         owner,
         repo,
