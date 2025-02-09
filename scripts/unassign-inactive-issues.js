@@ -129,29 +129,29 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
 
     // New Method 4: Official GitHub Linked PRs (Development section)
     try {
-      console.log(`Checking Development section via direct API call (issue #${issue.number})`);
+      console.log(`Checking Development section for linked PRs (issue #${issue.number})`);
       
-      const response = await github.request(
-        'GET /repos/{owner}/{repo}/issues/{issue_number}/pull_requests', {
-          owner,
-          repo,
-          issue_number: issue.number,
-          per_page: 100,
-          headers: {
-            'X-GitHub-Api-Version': '2022-11-28'
-          }
-        }
-      );
+      // Use the pre-authenticated github instance
+      const { data: linkedPRs } = await github.rest.issues.listLinkedPullRequests({
+        owner,
+        repo,
+        issue_number: issue.number,
+        per_page: 100
+      });
 
-      response.data
+      linkedPRs
         .filter(pr => pr.state === 'open')
         .forEach(pr => {
-          console.log(`Found linked PR #${pr.number} via Development section`);
+          console.log(`✅ Found linked PR #${pr.number} via Development section`);
           linkedPRs.add(pr.number);
         });
 
     } catch (devSectionError) {
-      console.error('Development section check failed:', devSectionError.message);
+      console.error('Development section check error:', {
+        message: devSectionError.message,
+        status: devSectionError.status,
+        docs: devSectionError.documentation_url
+      });
     }
 
     // Method 2: Search for PRs that mention this issue
