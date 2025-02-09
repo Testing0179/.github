@@ -131,26 +131,27 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
     try {
       console.log(`Checking Development section for linked PRs (issue #${issue.number})`);
       
-      // Use the pre-authenticated github instance
-      const { data: linkedPRs } = await github.rest.issues.listLinkedPullRequests({
+      // Use the correct Octokit method
+      const { data: linkedPRList } = await github.rest.issues.listPullRequestsAssociatedWithIssue({
         owner,
         repo,
         issue_number: issue.number,
-        per_page: 100
+        per_page: 100,
+        headers: { 'X-GitHub-Api-Version': '2022-11-28' } // Required for API stability
       });
-
-      linkedPRs
+    
+      // Filter open PRs and add to the linkedPRs set
+      linkedPRList
         .filter(pr => pr.state === 'open')
         .forEach(pr => {
           console.log(`✅ Found linked PR #${pr.number} via Development section`);
           linkedPRs.add(pr.number);
         });
-
-    } catch (devSectionError) {
-      console.error('Development section check error:', {
-        message: devSectionError.message,
-        status: devSectionError.status,
-        docs: devSectionError.documentation_url
+    } catch (error) {
+      console.error('Development section check failed:', {
+        message: error.message,
+        status: error.status,
+        docs: error.documentation_url
       });
     }
 
