@@ -97,30 +97,8 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
           (event.event === 'closed' && event?.commit_id && event?.source?.issue?.pull_request) ||
           (event.event === 'connected' && event?.source?.issue?.pull_request?.merged === false)
         ) {
-          console.log('found found found');
-          
-          try {
-            let prNumber = event?.source?.issue?.number;
-            if (!prNumber && event?.source?.pull_request?.number) {
-              prNumber = event.source.pull_request.number;
-            }
-
-            if (prNumber) {
-              console.log(`Checking PR #${prNumber} from timeline event`);
-              const { data: pr } = await github.rest.pulls.get({
-                owner,
-                repo,
-                pull_number: prNumber
-              });
-              
-              if (pr && pr.state === 'open') {
-                console.log(`Found valid linked PR #${prNumber} (${pr.state})`);
-                linkedPRs.add(prNumber); // Use add() instead of push()
-              }
-            }
-          } catch (e) {
-            console.log(`Error fetching PR details:`, e.message);
-          }
+          console.log(`Found ${event.event} event - returning true immediately`);
+          return new Set([1]); // Return non-empty Set to indicate linked PR
         }
       }
     } catch (timelineError) {
