@@ -69,18 +69,18 @@ async function getAllIssues(github, owner, repo) {
   console.log(`Total issues fetched (excluding PRs): ${allIssues.length}`);
   return allIssues;
 }
-let shouldSkip = false;
+
 const checkLinkedPRs = async (issue, github, owner, repo) => {
   try {
     if (!issue || !issue.number) {
       console.error('Invalid issue object received:', issue);
-      return { linkedPRs: new Set(), shouldSkip: false };
+      return new Set(); // Return empty Set instead of false
     }
 
     let linkedPRs = new Set();
     console.log(`\nChecking linked PRs for issue #${issue.number}`);
 
-    // Method 1: Check timeline with connected event handling
+    // Method 1: Check timeline with enhanced connected event handling
     try {
       console.log(`Checking timeline events for issue #${issue.number}`);
       const { data: timelineEvents } = await github.rest.issues.listEventsForTimeline({
@@ -97,9 +97,28 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
           (event.event === 'closed' && event?.commit_id && event?.source?.issue?.pull_request) ||
           (event.event === 'connected' && event?.source?.issue?.pull_request?.merged === false)
         ) {
-          console.log(`Found ${event.event} event - marking issue for skipping`);
-          shouldSkip = true;
-          break;
+          try {
+            let prNumber = event?.source?.issue?.number;
+            if (!prNumber && event?.source?.pull_request?.number) {
+              prNumber = event.source.pull_request.number;
+            }
+
+            if (prNumber) {
+              console.log(`Checking PR #${prNumber} from timeline event`);
+              const { data: pr } = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: prNumber
+              });
+              
+              if (pr && pr.state === 'open') {
+                console.log(`Found valid linked PR #${prNumber} (${pr.state})`);
+                linkedPRs.add(prNumber); // Use add() instead of push()
+              }
+            }
+          } catch (e) {
+            console.log(`Error fetching PR details:`, e.message);
+          }
         }
       }
     } catch (timelineError) {
@@ -128,7 +147,7 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
                 pull_number: pr.number
               });
               if (prDetails?.data?.state === 'open') {
-                linkedPRs.add(prDetails.data.number);
+                linkedPRs.add(prDetails.data.number); // Use add() with PR number
               }
             } catch (e) {
               console.log(`Error fetching PR #${pr.number} details:`, e.message);
@@ -171,7 +190,7 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
             pull_number: prNumber
           });
           if (prDetails?.data?.state === 'open') {
-            linkedPRs.add(prNumber);
+            linkedPRs.add(prNumber); // Use add() with PR number
           }
         } catch (e) {
           console.log(`Error fetching PR #${prNumber}:`, e.message);
@@ -179,10 +198,11 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
       }
     }
 
-    return { linkedPRs, shouldSkip };
+    // Return the Set of linked PR numbers (always return a Set)
+    return linkedPRs;
   } catch (error) {
     console.error(`Error in checkLinkedPRs for issue #${issue.number}:`, error);
-    return { linkedPRs: new Set(), shouldSkip: false };
+    return new Set(); // Return empty Set instead of false
   }
 };
 
@@ -279,11 +299,7 @@ module.exports = async ({ github, context, core }) => {
 
       console.log(`Checking for linked PRs for issue #${issue.number}`);
       const hasOpenPRs = await checkLinkedPRs(issue, github, owner, repo);
-
-      if (shouldSkip) {
-        console.log(`Issue #${issue.number} has connected/cross-referenced PR, skipping unassignment`);
-        continue;
-      }
+      
       if (hasOpenPRs) {
         console.log(`Issue #${issue.number} has open PRs, skipping unassignment`);
         continue;
