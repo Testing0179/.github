@@ -300,7 +300,7 @@ module.exports = async ({ github, context, core }) => {
       console.log(`Checking for linked PRs for issue #${issue.number}`);
       const hasOpenPRs = await checkLinkedPRs(issue, github, owner, repo);
       
-      if (hasOpenPRs) {
+      if (hasOpenPRs.size > 0) {
         console.log(`Issue #${issue.number} has open PRs, skipping unassignment`);
         continue;
       }
