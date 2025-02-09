@@ -187,19 +187,6 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
   }
 };
 
-// In the main function, modify the PR check:
-const { linkedPRs, shouldSkip } = await checkLinkedPRs(issue, github, owner, repo);
-      
-if (shouldSkip) {
-  console.log(`Issue #${issue.number} has connected/cross-referenced PR, skipping unassignment`);
-
-}
-
-if (linkedPRs.size > 0) {
-  console.log(`Issue #${issue.number} has ${linkedPRs.size} open PRs, skipping unassignment`);
-
-}
-
 // Function to check user membership and ownership
 const checkUserMembership = async (owner, repo, username, github) => {
   try {
@@ -293,7 +280,11 @@ module.exports = async ({ github, context, core }) => {
 
       console.log(`Checking for linked PRs for issue #${issue.number}`);
       const hasOpenPRs = await checkLinkedPRs(issue, github, owner, repo);
-      
+
+      if (shouldSkip) {
+        console.log(`Issue #${issue.number} has connected/cross-referenced PR, skipping unassignment`);
+        continue;
+      }
       if (hasOpenPRs) {
         console.log(`Issue #${issue.number} has open PRs, skipping unassignment`);
         continue;
