@@ -1,11 +1,8 @@
 const fetch = require('node-fetch-native');
 
-/**
- * Format unassignments into a human‐readable string.
- */
 const formatUnassignments = (unassignments) => {
   if (unassignments.length === 0) return '';
-
+  
   // Group unassignments by issue
   const groupedByIssue = unassignments.reduce((acc, curr) => {
     const key = `${curr.repo}#${curr.issueNumber}`;
@@ -24,49 +21,44 @@ const formatUnassignments = (unassignments) => {
 
   // Format the grouped unassignments
   return Object.values(groupedByIssue)
-    .map(({ users, repo, issueNumber, issueUrl }) =>
+    .map(({ users, repo, issueNumber, issueUrl }) => 
       `${users.map(u => `@${u}`).join(', ')} from <${issueUrl}|${repo}#${issueNumber}>`
     )
     .join(', ');
 };
 
-/**
- * Fetch all open issues (excluding pull requests) using pagination.
- */
-async function getAllIssues(owner, repo) {
+async function getAllIssues(github, owner, repo) {
   const allIssues = [];
   let page = 1;
   const perPage = 100;
   
   while (true) {
     console.log(`Fetching page ${page} of issues...`);
-    const issuesUrl = `https://api.github.com/repos/${owner}/${repo}/issues?state=open&per_page=${perPage}&page=${page}`;
+    
     try {
-      const response = await fetch(issuesUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'Your-App-Name'
-        }
+      const response = await github.rest.issues.listForRepo({
+        owner,
+        repo,
+        state: 'open',
+        per_page: perPage,
+        page: page,
+        filter: 'all',
+        pulls: false
       });
-      if (!response.ok) {
-        throw new Error(`Error fetching issues page ${page}: ${response.statusText}`);
-      }
-      const issues = await response.json();
-      // Filter out pull requests (issues that include a "pull_request" property)
-      const filteredIssues = issues.filter(issue => !issue.pull_request);
       
-      if (filteredIssues.length === 0) {
+      const issues = response.data.filter(issue => !issue.pull_request);
+      
+      if (issues.length === 0) {
         break; // No more issues to fetch
       }
       
-      allIssues.push(...filteredIssues);
-      console.log(`Fetched ${filteredIssues.length} issues from page ${page}`);
+      allIssues.push(...issues);
+      console.log(`Fetched ${issues.length} issues (excluding PRs) from page ${page}`);
       
-      if (filteredIssues.length < perPage) {
-        break; // Last page
+      if (issues.length < perPage) {
+        break; // Last page has fewer items than perPage
       }
+      
       page++;
     } catch (error) {
       console.error(`Error fetching issues page ${page}:`, error);
@@ -78,111 +70,92 @@ async function getAllIssues(owner, repo) {
   return allIssues;
 }
 
-/**
- * Check for linked PRs for a given issue using several methods:
- *  1. Query the issue timeline for cross-referenced events
- *  2. Search for open PRs that mention this issue
- *  3. Parse the issue body for PR references
- */
-const checkLinkedPRs = async (issue, owner, repo) => {
+const checkLinkedPRs = async (issue, github, owner, repo) => {
   try {
     if (!issue || !issue.number) {
       console.error('Invalid issue object received:', issue);
-      return new Set();
+      return new Set(); // Return empty Set instead of false
     }
 
     let linkedPRs = new Set();
 
-    // Method 1: Use timeline events (Development section)
-    try {
-      console.log(`Checking Development section for linked PRs (issue #${issue.number}) via timeline events`);
-      const timelineUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${issue.number}/timeline?per_page=100`;
-      const timelineResponse = await fetch(timelineUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-          'Accept': 'application/vnd.github.mockingbird-preview+json',
-          'User-Agent': 'Your-App-Name'
-        }
+    // Method 1: Check timeline with enhanced connected event handling
+    try { 
+      const { data: timelineEvents } = await github.rest.issues.listEventsForTimeline({
+        owner,
+        repo,
+        issue_number: issue.number,
+        per_page: 100
       });
-      if (timelineResponse.ok) {
-        const timelineEvents = await timelineResponse.json();
-        for (const event of timelineEvents) {
-          if (
-            event.event === 'cross-referenced' &&
-            event.source &&
-            event.source.issue &&
-            event.source.issue.pull_request // Indicates the event came from a PR
-          ) {
-            const prNumber = event.source.issue.number;
-            // Optionally verify PR state by fetching PR details
-            const prUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`;
-            const prResponse = await fetch(prUrl, {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-                'Accept': 'application/vnd.github.v3+json',
-                'User-Agent': 'Your-App-Name'
-              }
-            });
-            if (prResponse.ok) {
-              const prData = await prResponse.json();
-              if (prData.state === 'open') {
-                console.log(`✅ Found linked PR #${prNumber} via timeline event`);
-                linkedPRs.add(prNumber);
-              }
-            } else {
-              console.error(`Error fetching PR details for #${prNumber}: ${prResponse.statusText}`);
+      console.log(timelineEvents);
+      
+      for (const event of timelineEvents) {
+        if (
+          (event.event === 'connected' || event.event === 'cross-referenced') ||
+          (event.event === 'referenced' && event?.commit_id && event?.source?.issue?.pull_request) ||
+          (event.event === 'closed' && event?.commit_id && event?.source?.issue?.pull_request) ||
+          (event.event === 'connected' && event?.source?.issue?.pull_request?.merged === false)
+        ) {
+          try {
+            let prNumber = event?.source?.issue?.number;
+            if (!prNumber && event?.source?.pull_request?.number) {
+              prNumber = event.source.pull_request.number;
             }
+
+            if (prNumber) {
+              console.log(`Checking PR #${prNumber} from timeline event`);
+              const { data: pr } = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: prNumber
+              });
+              
+              if (pr && pr.state === 'open') {
+                console.log(`Found valid linked PR #${prNumber} (${pr.state})`);
+                linkedPRs.add(prNumber); // Use add() instead of push()
+              }
+            }else{
+              console.log('found found');
+              
+            }
+          } catch (e) {
+            console.log(`Error fetching PR details:`, e.message);
           }
         }
-      } else {
-        console.error(`Error fetching timeline for issue #${issue.number}: ${timelineResponse.statusText}`);
       }
     } catch (timelineError) {
-      console.error(`Timeline method error for issue #${issue.number}:`, timelineError.message);
+      console.error(`Error fetching timeline for issue #${issue.number}:`, timelineError.message);
     }
 
     // Method 2: Search for PRs that mention this issue
     try {
       const searchQuery = `repo:${owner}/${repo} type:pr is:open ${issue.number} in:body,title`;
       console.log(`Searching for PRs with query: ${searchQuery}`);
-      const searchUrl = `https://api.github.com/search/issues?q=${encodeURIComponent(searchQuery)}`;
-      const searchResponse = await fetch(searchUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'Your-App-Name'
-        }
+      
+      const searchResult = await github.rest.search.issuesAndPullRequests({
+        q: searchQuery
       });
-      if (searchResponse.ok) {
-        const searchData = await searchResponse.json();
-        if (searchData.items) {
-          const foundPRs = searchData.items.filter(item => item.pull_request);
-          console.log(`Found ${foundPRs.length} PRs mentioning this issue through search`);
-          for (const pr of foundPRs) {
-            const prUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${pr.number}`;
-            const prResponse = await fetch(prUrl, {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-                'Accept': 'application/vnd.github.v3+json',
-                'User-Agent': 'Your-App-Name'
+
+      if (searchResult?.data?.items) {
+        const foundPRs = searchResult.data.items.filter(item => item?.pull_request);
+        console.log(`Found ${foundPRs.length} PRs mentioning this issue through search`);
+        
+        for (const pr of foundPRs) {
+          if (pr?.number) {
+            try {
+              const prDetails = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: pr.number
+              });
+              if (prDetails?.data?.state === 'open') {
+                linkedPRs.add(prDetails.data.number); // Use add() with PR number
               }
-            });
-            if (prResponse.ok) {
-              const prData = await prResponse.json();
-              if (prData.state === 'open') {
-                linkedPRs.add(prData.number);
-              }
-            } else {
-              console.error(`Error fetching PR details for search result #${pr.number}: ${prResponse.statusText}`);
+            } catch (e) {
+              console.log(`Error fetching PR #${pr.number} details:`, e.message);
             }
           }
         }
-      } else {
-        console.error(`Search API error: ${searchResponse.statusText}`);
       }
     } catch (searchError) {
       console.log('Search API error:', searchError.message);
@@ -208,74 +181,57 @@ const checkLinkedPRs = async (issue, owner, repo) => {
           }
         }
       }
+
       console.log(`Found ${prReferences.size} PR references in issue body`);
+
       for (const prNumber of prReferences) {
-        const prUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`;
-        const prResponse = await fetch(prUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'Your-App-Name'
+        try {
+          const prDetails = await github.rest.pulls.get({
+            owner,
+            repo,
+            pull_number: prNumber
+          });
+          if (prDetails?.data?.state === 'open') {
+            linkedPRs.add(prNumber); // Use add() with PR number
           }
-        });
-        if (prResponse.ok) {
-          const prData = await prResponse.json();
-          if (prData.state === 'open') {
-            linkedPRs.add(prNumber);
-          }
-        } else {
-          console.error(`Error fetching PR #${prNumber} from issue body: ${prResponse.statusText}`);
+        } catch (e) {
+          console.log(`Error fetching PR #${prNumber}:`, e.message);
         }
       }
     }
 
+    // Return the Set of linked PR numbers (always return a Set)
     return linkedPRs;
   } catch (error) {
     console.error(`Error in checkLinkedPRs for issue #${issue.number}:`, error);
-    return new Set();
+    return new Set(); // Return empty Set instead of false
   }
 };
 
-/**
- * Check if a given username is an active member.
- * First, we check if the user is the repository owner.
- * Then, we check if the user is a member of the organization (if applicable).
- */
-const checkUserMembership = async (owner, repo, username) => {
+// Function to check user membership and ownership
+const checkUserMembership = async (owner, repo, username, github) => {
   try {
-    // Check repository details
-    const repoUrl = `https://api.github.com/repos/${owner}/${repo}`;
-    const repoResponse = await fetch(repoUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'Your-App-Name'
-      }
+    // Check if the user is an owner of the repository
+    const repoDetails = await github.rest.repos.get({
+      owner,
+      repo
     });
-    if (!repoResponse.ok) {
-      throw new Error(`Failed to fetch repository details: ${repoResponse.statusText}`);
-    }
-    const repoData = await repoResponse.json();
-    if (repoData.owner.login.toLowerCase() === username.toLowerCase()) {
+
+    // Check if the repository owner matches the username
+    if (repoDetails.data.owner.login === username) {
       console.log(`${username} is the repository owner`);
       return true;
     }
-    // Check organization membership (if the repo owner is an organization)
-    const membershipUrl = `https://api.github.com/orgs/${owner}/members/${username}`;
-    const membershipResponse = await fetch(membershipUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'Your-App-Name'
-      }
-    });
-    if (membershipResponse.ok) {
+
+    // Check if the user is an organization member
+    try {
+      await github.rest.orgs.getMembershipForUser({
+        org: owner,
+        username: username
+      });
       console.log(`${username} is an organization member`);
       return true;
-    } else {
+    } catch (orgError) {
       console.log(`${username} is not an organization member`);
       return false;
     }
@@ -285,48 +241,33 @@ const checkUserMembership = async (owner, repo, username) => {
   }
 };
 
-/**
- * Main function.
- * For each open issue (excluding PRs) that is inactive and has assignees:
- *  - If there are no linked open PRs
- *  - Then, determine which assignees are inactive (not a site admin and not a member)
- *  - Update the issue’s assignees (remove inactive users)
- *  - Add a comment explaining the unassignment
- *  - Record the unassignments for reporting
- */
-module.exports = async ({ context, core }) => {
+module.exports = async ({ github, context, core }) => {
   try {
     const unassignments = [];
     const inactivityPeriodInMinutes = 1;
+
     const [owner, repo] = context.payload.repository.full_name.split('/');
     console.log(`Processing repository: ${owner}/${repo}`);
-
-    // Test API access by getting repository details
+    
     try {
-      const repoUrl = `https://api.github.com/repos/${owner}/${repo}`;
-      const repoResponse = await fetch(repoUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'Your-App-Name'
-        }
+      // Test API access by getting repository details
+      const { data: repository } = await github.rest.repos.get({
+        owner,
+        repo
       });
-      if (!repoResponse.ok) {
-        throw new Error(`Failed to fetch repository: ${repoResponse.statusText}`);
-      }
-      const repository = await repoResponse.json();
-      console.log('Successfully authenticated with GitHub and verified repository access');
+      console.log('Successfully authenticated with GitHub App and verified repository access');
       console.log(`Repository: ${repository.full_name}`);
     } catch (authError) {
       console.error('Authentication error details:', {
-        message: authError.message
+        message: authError.message,
+        status: authError.status,
+        documentation_url: authError.documentation_url
       });
-      throw new Error(`Repository access failed. Please check your token permissions. Error: ${authError.message}`);
+      throw new Error(`Repository access failed. Please check your GitHub App permissions for repository access. Error: ${authError.message}`);
     }
 
-    // Get all open issues (excluding PRs)
-    const issues = await getAllIssues(owner, repo);
+    // Get all issues using pagination
+    const issues = await getAllIssues(github, owner, repo);
     console.log(`Processing ${issues.length} open issues`);
 
     for (const issue of issues) {
@@ -349,22 +290,25 @@ module.exports = async ({ context, core }) => {
         continue;
       }
 
-      // Check if the issue is inactive (based on updated_at)
+      // Check if issue is inactive
       const lastActivity = new Date(issue.updated_at);
       const now = new Date();
+      
       if (now - lastActivity <= inactivityPeriodInMinutes * 60 * 1000) {
         console.log(`Issue #${issue.number} is still active, skipping`);
         continue;
       }
 
       console.log(`Checking for linked PRs for issue #${issue.number}`);
-      const linkedPRs = await checkLinkedPRs(issue, owner, repo);
-      if (linkedPRs.size > 0) {
-        console.log(`Issue #${issue.number} has open linked PRs, skipping unassignment`);
+      const hasOpenPRs = await checkLinkedPRs(issue, github, owner, repo);
+      
+      if (hasOpenPRs.size > 0) {
+        console.log(`Issue #${issue.number} has open PRs, skipping unassignment`);
         continue;
       }
 
-      console.log(`Processing inactive issue #${issue.number} with no open linked PRs`);
+      console.log(`Processing inactive issue #${issue.number} with no open PRs`);
+
       const inactiveAssignees = [];
       const activeAssignees = [];
 
@@ -373,9 +317,10 @@ module.exports = async ({ context, core }) => {
           console.log('Skipping invalid assignee:', assignee);
           continue;
         }
-        if (assignee.site_admin || await checkUserMembership(owner, repo, assignee.login)) {
+
+        if (assignee.site_admin || await checkUserMembership(owner, repo, assignee.login, github)) {
           activeAssignees.push(assignee.login);
-          console.log(`${assignee.login} is active, keeping assignment`);
+          console.log(`${assignee.login} is an active member, keeping assignment`);
         } else {
           inactiveAssignees.push(assignee.login);
           console.log(`${assignee.login} is inactive, will be unassigned`);
@@ -388,44 +333,26 @@ module.exports = async ({ context, core }) => {
       }
 
       try {
-        // Update the issue to set its assignees to the active ones only.
-        const updateUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${issue.number}`;
-        const updateResponse = await fetch(updateUrl, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'Your-App-Name',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ assignees: activeAssignees })
+        // Update issue assignees
+        await github.rest.issues.update({
+          owner,
+          repo,
+          issue_number: issue.number,
+          assignees: activeAssignees,
         });
-        if (!updateResponse.ok) {
-          throw new Error(`Failed to update issue: ${updateResponse.statusText}`);
-        }
-        console.log(`Successfully updated issue #${issue.number} (unassigned inactive users)`);
+        console.log(`Successfully unassigned users from issue #${issue.number}`);
 
-        // Add a comment to the issue explaining the unassignment.
+        // Add comment
         const mentionList = inactiveAssignees.map(login => `@${login}`).join(', ');
-        const commentUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${issue.number}/comments`;
-        const commentResponse = await fetch(commentUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'Your-App-Name',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            body: `Automatically unassigning ${mentionList} due to inactivity. ${mentionList}, if you're still interested or already working on this issue, please let us know and we will reassign you. Thank you!`
-          })
+        await github.rest.issues.createComment({
+          owner,
+          repo,
+          issue_number: issue.number,
+          body: `Automatically unassigning ${mentionList} due to inactivity. ${mentionList}, If you're still interested in this issue or already have work in progress, please message us here, and we'll assign you again. Thank you!`,
         });
-        if (!commentResponse.ok) {
-          throw new Error(`Failed to create comment: ${commentResponse.statusText}`);
-        }
         console.log(`Added comment to issue #${issue.number}`);
 
-        // Record unassignments for reporting
+        // Record unassignments
         inactiveAssignees.forEach(login => {
           unassignments.push({
             user: login,
@@ -435,11 +362,13 @@ module.exports = async ({ context, core }) => {
             issueUrl: `https://github.com/${owner}/${repo}/issues/${issue.number}`
           });
         });
+
       } catch (issueError) {
         console.error(`Error processing issue #${issue.number}:`, {
-          message: issueError.message
+          message: issueError.message,
+          status: issueError.status
         });
-        if (issueError.message.includes('403')) {
+        if (issueError.status === 403) {
           throw new Error('Token lacks necessary permissions. Ensure it has "issues" and "write" access.');
         }
       }
@@ -447,7 +376,7 @@ module.exports = async ({ context, core }) => {
 
     const formattedUnassignments = formatUnassignments(unassignments);
     console.log('Unassignments completed:', unassignments.length);
-
+    
     try {
       core.setOutput('unassignments', formattedUnassignments);
       return formattedUnassignments;
@@ -455,6 +384,7 @@ module.exports = async ({ context, core }) => {
       console.error('Error setting output:', error);
       core.setFailed(error.message);
     }
+
   } catch (error) {
     console.error('Action failed:', error);
     console.error('Full error details:', error);
