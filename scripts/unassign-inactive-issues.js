@@ -69,109 +69,6 @@ async function getAllIssues(github, owner, repo) {
   console.log(`Total issues fetched (excluding PRs): ${allIssues.length}`);
   return allIssues;
 }
-async function getPRTimeline(github, owner, repo, prNumber) {
-  const timelineEvents = [];
-  let page = 1;
-  const perPage = 100;
-
-  try {
-    while (true) {
-      const { data: events } = await github.rest.issues.listEventsForTimeline({
-        owner,
-        repo,
-        issue_number: prNumber,
-        per_page: perPage,
-        page: page
-      });
-
-      if (!events || events.length === 0) break;
-      timelineEvents.push(...events);
-      
-      // Debug: Log fetched events
-      console.log(`PR #${prNumber} page ${page} events:`, events.map(e => ({
-        event: e.event,
-        sourceIssue: e.source?.issue?.number
-      })));
-
-      if (events.length < perPage) break;
-      page++;
-    }
-  } catch (error) {
-    console.error(`Error fetching timeline for PR #${prNumber}:`, error.message);
-  }
-  return timelineEvents;
-}
-
-// Helper: Get ALL open PRs (paginated)
-async function getAllOpenPRs(github, owner, repo) {
-  const allPRs = [];
-  let page = 1;
-
-  try {
-    while (true) {
-      const { data: prs } = await github.rest.pulls.list({
-        owner,
-        repo,
-        state: 'open',
-        per_page: 100,
-        page: page
-      });
-
-      if (!prs || prs.length === 0) break;
-      allPRs.push(...prs);
-      
-      // Debug: Log fetched PRs
-      console.log(`Fetched PRs page ${page}:`, prs.map(p => p.number));
-
-      if (prs.length < 100) break;
-      page++;
-    }
-  } catch (error) {
-    console.error('Error fetching PRs:', error.message);
-  }
-  return allPRs;
-}
-
-// Core detection logic
-const checkPRsForLinkedIssue = async (github, owner, repo, issueNumber) => {
-  const linkedPRs = new Set();
-  
-  try {
-    const allPRs = await getAllOpenPRs(github, owner, repo);
-    console.log(`Checking ${allPRs.length} open PRs for links to issue #${issueNumber}`);
-
-    for (const pr of allPRs) {
-      console.log(`Checking PR #${pr.number} for connections`);
-      const prTimeline = await getPRTimeline(github, owner, repo, pr.number);
-
-      const connectionFound = prTimeline.some(event => {
-        const isConnected = event.event === 'connected';
-        const matchesIssue = event.source?.issue?.number === issueNumber;
-        
-        // Debug: Log event details
-        if (isConnected) {
-          console.log(`PR #${pr.number} event:`, {
-            type: event.event,
-            sourceIssue: event.source?.issue?.number,
-            matches: matchesIssue ? "YES" : "NO"
-          });
-        }
-        
-        return isConnected && matchesIssue;
-      });
-
-      if (connectionFound) {
-        console.log(`✅ Found GUI link: PR #${pr.number} → Issue #${issueNumber}`);
-        linkedPRs.add(pr.number);
-      }
-    }
-  } catch (error) {
-    console.error('Error in checkPRsForLinkedIssue:', error.message);
-  }
-  
-  return linkedPRs;
-};
-
 
 const checkLinkedPRs = async (issue, github, owner, repo) => {
   try {
@@ -229,10 +126,27 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
     // } catch (timelineError) {
     //   console.error(`Error fetching timeline for issue #${issue.number}:`, timelineError.message);
     // }
-    // 1. Check PR timelines for GUI links
-    const guiLinkedPRs = await checkPRsForLinkedIssue(github, owner, repo, issue.number);
-    guiLinkedPRs.forEach(pr => linkedPRs.add(pr));
 
+    // New Method 4: Official GitHub Linked PRs (Development section)
+    try {
+      console.log(`Checking Development section for linked PRs (issue #${issue.number})`);
+      const { data: linkedPRList } = await github.rest.issues.listPullRequests({
+        owner,
+        repo,
+        issue_number: issue.number,
+        per_page: 100
+      });
+      console.log(linkedPRList);
+      
+      linkedPRList
+        .filter(pr => pr.state === 'open')
+        .forEach(pr => {
+          console.log(`Found linked PR #${pr.number} via Development section`);
+          linkedPRs.add(pr.number);
+        });
+    } catch (devSectionError) {
+      console.error('Error checking Development section:', devSectionError.message);
+    }
     
 
     // Method 2: Search for PRs that mention this issue
