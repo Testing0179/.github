@@ -114,6 +114,9 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
                 console.log(`Found valid linked PR #${prNumber} (${pr.state})`);
                 linkedPRs.add(prNumber); // Use add() instead of push()
               }
+            }else{
+              console.log('found found');
+              
             }
           } catch (e) {
             console.log(`Error fetching PR details:`, e.message);
