@@ -69,26 +69,91 @@ async function getAllIssues(github, owner, repo) {
   console.log(`Total issues fetched (excluding PRs): ${allIssues.length}`);
   return allIssues;
 }
-// Helper: Fetch all open PRs in the repo
+async function getPRTimeline(github, owner, repo, prNumber) {
+  const timelineEvents = [];
+  let page = 1;
+  const perPage = 100;
+
+  while (true) {
+    try {
+      const { data: events } = await github.rest.issues.listEventsForTimeline({
+        owner,
+        repo,
+        issue_number: prNumber,
+        per_page: perPage,
+        page: page
+      });
+
+      if (events.length === 0) break;
+      timelineEvents.push(...events);
+      page++;
+
+      if (events.length < perPage) break;
+    } catch (error) {
+      console.error(`Error fetching timeline for PR #${prNumber}:`, error);
+      break;
+    }
+  }
+  return timelineEvents;
+}
+
+// Helper: Get all open PRs in the repo
 async function getAllOpenPRs(github, owner, repo) {
   const allPRs = [];
   let page = 1;
+
   while (true) {
-    const { data: prs } = await github.rest.pulls.list({ owner, repo, state: 'open', per_page: 100, page });
-    if (prs.length === 0) break;
-    allPRs.push(...prs);
-    page++;
+    try {
+      const { data: prs } = await github.rest.pulls.list({
+        owner,
+        repo,
+        state: 'open',
+        per_page: 100,
+        page: page
+      });
+
+      if (prs.length === 0) break;
+      allPRs.push(...prs);
+      page++;
+
+      if (prs.length < 100) break;
+    } catch (error) {
+      console.error('Error fetching PRs:', error);
+      break;
+    }
   }
   return allPRs;
 }
 
-// Helper: Get issue numbers linked to a PR
-async function getLinkedIssuesForPR(github, owner, repo, prNumber) {
-  const { data: timeline } = await github.rest.issues.listEventsForTimeline({ owner, repo, issue_number: prNumber });
-  return timeline
-    .filter(event => event.event === 'connected' && event.source?.issue?.number)
-    .map(event => event.source.issue.number);
-}
+// Detect PRs linked via GitHub GUI by checking PR timelines
+const checkPRsForLinkedIssue = async (github, owner, repo, issueNumber) => {
+  const linkedPRs = new Set();
+  try {
+    const allPRs = await getAllOpenPRs(github, owner, repo);
+    
+    for (const pr of allPRs) {
+      try {
+        const prTimeline = await getPRTimeline(github, owner, repo, pr.number);
+        
+        // Check for 'connected' events pointing to this issue
+        const hasConnection = prTimeline.some(event => 
+          event.event === 'connected' &&
+          event.source?.issue?.number === issueNumber
+        );
+
+        if (hasConnection) {
+          linkedPRs.add(pr.number);
+          console.log(`Found linked PR #${pr.number} via GUI connection`);
+        }
+      } catch (prError) {
+        console.error(`Error processing PR #${pr.number}:`, prError.message);
+      }
+    }
+  } catch (error) {
+    console.error('Error in checkPRsForLinkedIssue:', error);
+  }
+  return linkedPRs;
+};
 
 const checkLinkedPRs = async (issue, github, owner, repo) => {
   try {
@@ -146,43 +211,10 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
     // } catch (timelineError) {
     //   console.error(`Error fetching timeline for issue #${issue.number}:`, timelineError.message);
     // }
-    // Method 1: Enhanced timeline handling for GUI-linked PRs
-    try { 
-      const { data: timelineEvents } = await github.rest.issues.listEventsForTimeline({
-        owner,
-        repo,
-        issue_number: issue.number,
-        per_page: 100
-      });
-      
-      for (const event of timelineEvents) {
-        if (event.event === 'connected') {
-          // Search all PRs for links to this issue
-          const allOpenPRs = await getAllOpenPRs(github, owner, repo);
-          for (const pr of allOpenPRs) {
-            const linkedIssues = await getLinkedIssuesForPR(github, owner, repo, pr.number);
-            if (linkedIssues.includes(issue.number)) {
-              linkedPRs.add(pr.number);
-              console.log(`Found linked PR #${pr.number} via GUI connection`);
-            }
-          }
-        } else if (
-          event.event === 'cross-referenced' && 
-          event.source?.issue?.pull_request
-        ) {
-          // Existing logic for cross-referenced PRs
-          const prNumber = event.source.issue.number;
-          try {
-            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-            if (pr?.state === 'open') linkedPRs.add(prNumber);
-          } catch (e) {
-            console.log(`Error fetching PR #${prNumber}:`, e.message);
-          }
-        }
-      }
-    } catch (timelineError) {
-      console.error(`Timeline error:`, timelineError.message);
-    }
+    // Method 1: Check PR timelines for GUI links
+    const guiLinkedPRs = await checkPRsForLinkedIssue(github, owner, repo, issue.number);
+    guiLinkedPRs.forEach(pr => linkedPRs.add(pr));
+    
 
     // Method 2: Search for PRs that mention this issue
     try {
