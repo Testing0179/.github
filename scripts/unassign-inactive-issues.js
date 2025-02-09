@@ -130,14 +130,14 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
     // New Method 4: Official GitHub Linked PRs (Development section)
     try {
       console.log(`Checking Development section for linked PRs (issue #${issue.number})`);
-      const { data: linkedPRList } = await github.rest.issues.listPullRequests({
+      const { data: linkedPRList } = await github.rest.issues.listPullRequestsAssociatedWithIssue({
         owner,
         repo,
         issue_number: issue.number,
         per_page: 100
       });
       console.log(linkedPRList);
-      
+    
       linkedPRList
         .filter(pr => pr.state === 'open')
         .forEach(pr => {
