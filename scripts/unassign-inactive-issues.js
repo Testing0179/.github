@@ -69,7 +69,7 @@ async function getAllIssues(github, owner, repo) {
   console.log(`Total issues fetched (excluding PRs): ${allIssues.length}`);
   return allIssues;
 }
-
+let shouldSkip = false;
 const checkLinkedPRs = async (issue, github, owner, repo) => {
   try {
     if (!issue || !issue.number) {
