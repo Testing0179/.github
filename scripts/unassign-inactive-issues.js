@@ -95,8 +95,6 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
           (event.event === 'closed' && event?.commit_id && event?.source?.issue?.pull_request) ||
           (event.event === 'connected' && event?.source?.issue?.pull_request?.merged === false)
         ) {
-          console.log(`Found linked PR in the issue`);
-          linkedPRs.add(1);
           try {
             let prNumber = event?.source?.issue?.number;
             if (!prNumber && event?.source?.pull_request?.number) {
