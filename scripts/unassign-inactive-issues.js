@@ -1,5 +1,5 @@
 const fetch = require('node-fetch-native');
-const { graphql } = require("@octokit/graphql");
+const graphql = (await import('@octokit/graphql')).graphql;
 
 const formatUnassignments = (unassignments) => {
   if (unassignments.length === 0) return '';
@@ -202,30 +202,52 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
     }
   // Method 4: Fetch PRs linked via GitHub's "Development" section
   try {
-  console.log(`Checking Development section for linked PRs (issue #${issue.number})`);
+    console.log(`Checking linked PRs for issue #${issue.number} via GraphQL`);
+    
+    const query = `
+      query($owner: String!, $repo: String!, $issueNumber: Int!) {
+        repository(owner: $owner, name: $repo) {
+          issue(number: $issueNumber) {
+            timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
+              nodes {
+                ... on CrossReferencedEvent {
+                  source {
+                    ... on PullRequest {
+                      number
+                      state
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
   
-  // Use the correct Octokit method
-  const { data: linkedPRList } = await github.rest.issues.listPullRequestsAssociatedWithIssue({
-    owner,
-    repo,
-    issue_number: issue.number,
-    per_page: 100,
-    headers: { 'X-GitHub-Api-Version': '2022-11-28' } // Required for API stability
-  });
-
-  // Filter open PRs and add to the linkedPRs set
-  linkedPRList
-    .filter(pr => pr.state === 'open')
-    .forEach(pr => {
-      console.log(`✅ Found linked PR #${pr.number} via Development section`);
-      linkedPRs.add(pr.number);
+    const { data } = await github.graphql(query, {
+      owner,
+      repo,
+      issueNumber: issue.number
     });
+  
+    const timelineItems = data?.repository?.issue?.timelineItems?.nodes || [];
+    
+    timelineItems
+      .filter(item => 
+        item?.source?.state === 'OPEN' && 
+        item?.source?.number
+      )
+      .forEach(item => {
+        console.log(`✅ Found linked PR #${item.source.number} via GraphQL`);
+        linkedPRs.add(item.source.number);
+      });
+  
   } catch (error) {
-  console.error('Development section check failed:', {
-    message: error.message,
-    status: error.status,
-    docs: error.documentation_url
-  });
+    console.error('GraphQL query failed:', {
+      message: error.message,
+      errors: error.errors
+    });
   }
 
 
