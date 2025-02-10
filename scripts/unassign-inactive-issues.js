@@ -207,7 +207,7 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
       query($owner: String!, $repo: String!, $issueNumber: Int!) {
         repository(owner: $owner, name: $repo) {
           issue(number: $issueNumber) {
-            timelineItems(first: 100) {  // No itemTypes filter to capture all events
+            timelineItems(first: 100) {
               nodes {
                 __typename
                 ... on ConnectedEvent {
