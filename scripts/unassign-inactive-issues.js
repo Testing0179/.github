@@ -1,5 +1,4 @@
 const fetch = require('node-fetch-native');
-const graphql = (await import('@octokit/graphql')).graphql;
 
 const formatUnassignments = (unassignments) => {
   if (unassignments.length === 0) return '';
@@ -200,22 +199,21 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
         }
       }
     }
-  // Method 4: Fetch PRs linked via GitHub's "Development" section
-  try {
-    console.log(`Checking linked PRs for issue #${issue.number} via GraphQL`);
-    
-    const query = `
-      query($owner: String!, $repo: String!, $issueNumber: Int!) {
-        repository(owner: $owner, name: $repo) {
-          issue(number: $issueNumber) {
-            timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
-              nodes {
-                ... on CrossReferencedEvent {
-                  source {
-                    ... on PullRequest {
-                      number
-                      state
-                    }
+  // Method 4: Check linked PRs via GitHub's GraphQL API
+try {
+  console.log(`Checking linked PRs for issue #${issue.number} via GraphQL`);
+  
+  const query = `
+    query($owner: String!, $repo: String!, $issueNumber: Int!) {
+      repository(owner: $owner, name: $repo) {
+        issue(number: $issueNumber) {
+          timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
+            nodes {
+              ... on CrossReferencedEvent {
+                source {
+                  ... on PullRequest {
+                    number
+                    state
                   }
                 }
               }
@@ -223,32 +221,33 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
           }
         }
       }
-    `;
+    }
+  `;
+
+  const result = await github.graphql(query, {
+    owner,
+    repo,
+    issueNumber: issue.number
+  });
+
+  const timelineItems = result?.repository?.issue?.timelineItems?.nodes || [];
   
-    const { data } = await github.graphql(query, {
-      owner,
-      repo,
-      issueNumber: issue.number
+  timelineItems
+    .filter(item => 
+      item?.source?.state === 'OPEN' && 
+      item?.source?.number
+    )
+    .forEach(item => {
+      console.log(`✅ Found linked PR #${item.source.number} via GraphQL`);
+      linkedPRs.add(item.source.number);
     });
-  
-    const timelineItems = data?.repository?.issue?.timelineItems?.nodes || [];
-    
-    timelineItems
-      .filter(item => 
-        item?.source?.state === 'OPEN' && 
-        item?.source?.number
-      )
-      .forEach(item => {
-        console.log(`✅ Found linked PR #${item.source.number} via GraphQL`);
-        linkedPRs.add(item.source.number);
-      });
-  
-  } catch (error) {
-    console.error('GraphQL query failed:', {
-      message: error.message,
-      errors: error.errors
-    });
-  }
+
+} catch (error) {
+  console.error('GraphQL query failed:', {
+    message: error.message,
+    errors: error.errors
+  });
+}
 
 
     // Return the Set of linked PR numbers (always return a Set)
