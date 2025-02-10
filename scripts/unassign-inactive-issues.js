@@ -220,14 +220,20 @@ const checkLinkedPRs = async (issue, octokit, owner, repo) => {
     // Method 4: GitHub's "Development" section (NEW)
     try {
       console.log(`Checking Development section for issue #${issue.number}`);
-      const { data: linkedPRsFromAPI } = await octokit.rest.issues.listPullRequestsAssociatedWithIssue({
-        owner,
-        repo,
-        issue_number: issue.number,
-        per_page: 100,
-        headers: { 'X-GitHub-Api-Version': '2022-11-28' }
-      });
-
+      const { data: linkedPRsFromAPI } = await octokit.request(
+        'GET /repos/{owner}/{repo}/issues/{issue_number}/pulls',
+        {
+          owner,
+          repo,
+          issue_number: issue.number,
+          per_page: 100,
+          headers: {
+            // This header enables the preview feature for this endpoint.
+            accept: 'application/vnd.github.groot-preview+json'
+          }
+        }
+      );
+    
       linkedPRsFromAPI
         .filter(pr => pr.state === 'open')
         .forEach(pr => {
