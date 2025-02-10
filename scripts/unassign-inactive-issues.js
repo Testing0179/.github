@@ -1,18 +1,8 @@
-const fetch = require("node-fetch-native");
+const fetch = require('node-fetch-native');
 
-
-module.exports = async ({ context, core }) => {
-  // Do dynamic import inside the function, not at top-level
-  const { Octokit } = await import('@octokit/rest');
-
-  // Initialize Octokit
-const octokit = new Octokit({
-  auth: process.env.GITHUB_TOKEN, // Use the GitHub token
-  request: { fetch }, // Use node-fetch for compatibility
-});
 const formatUnassignments = (unassignments) => {
-  if (unassignments.length === 0) return "";
-
+  if (unassignments.length === 0) return '';
+  
   // Group unassignments by issue
   const groupedByIssue = unassignments.reduce((acc, curr) => {
     const key = `${curr.repo}#${curr.issueNumber}`;
@@ -22,7 +12,7 @@ const formatUnassignments = (unassignments) => {
         owner: curr.owner,
         issueNumber: curr.issueNumber,
         issueUrl: curr.issueUrl,
-        users: [],
+        users: []
       };
     }
     acc[key].users.push(curr.user);
@@ -31,86 +21,80 @@ const formatUnassignments = (unassignments) => {
 
   // Format the grouped unassignments
   return Object.values(groupedByIssue)
-    .map(
-      ({ users, repo, issueNumber, issueUrl }) =>
-        `${users.map((u) => `@${u}`).join(", ")} from <${issueUrl}|${repo}#${issueNumber}>`
+    .map(({ users, repo, issueNumber, issueUrl }) => 
+      `${users.map(u => `@${u}`).join(', ')} from <${issueUrl}|${repo}#${issueNumber}>`
     )
-    .join(", ");
+    .join(', ');
 };
 
-async function getAllIssues(octokit, owner, repo) {
+async function getAllIssues(github, owner, repo) {
   const allIssues = [];
   let page = 1;
   const perPage = 100;
-
+  
   while (true) {
     console.log(`Fetching page ${page} of issues...`);
-
+    
     try {
-      const response = await octokit.rest.issues.listForRepo({
+      const response = await github.rest.issues.listForRepo({
         owner,
         repo,
-        state: "open",
+        state: 'open',
         per_page: perPage,
         page: page,
-        filter: "all",
-        pulls: false,
+        filter: 'all',
+        pulls: false
       });
-
-      const issues = response.data.filter((issue) => !issue.pull_request);
-
+      
+      const issues = response.data.filter(issue => !issue.pull_request);
+      
       if (issues.length === 0) {
         break; // No more issues to fetch
       }
-
+      
       allIssues.push(...issues);
       console.log(`Fetched ${issues.length} issues (excluding PRs) from page ${page}`);
-
+      
       if (issues.length < perPage) {
         break; // Last page has fewer items than perPage
       }
-
+      
       page++;
     } catch (error) {
       console.error(`Error fetching issues page ${page}:`, error);
       break;
     }
   }
-
+  
   console.log(`Total issues fetched (excluding PRs): ${allIssues.length}`);
   return allIssues;
 }
 
-const checkLinkedPRs = async (issue, octokit, owner, repo) => {
+const checkLinkedPRs = async (issue, github, owner, repo) => {
   try {
     if (!issue || !issue.number) {
-      console.error("Invalid issue object received:", issue);
+      console.error('Invalid issue object received:', issue);
       return new Set(); // Return empty Set instead of false
     }
 
     let linkedPRs = new Set();
 
     // Method 1: Check timeline with enhanced connected event handling
-    try {
-      const { data: timelineEvents } = await octokit.rest.issues.listEventsForTimeline({
+    try { 
+      const { data: timelineEvents } = await github.rest.issues.listEventsForTimeline({
         owner,
         repo,
         issue_number: issue.number,
-        per_page: 100,
+        per_page: 100
       });
-
+      console.log(timelineEvents);
+      
       for (const event of timelineEvents) {
         if (
-          event.event === "connected" ||
-          event.event === "cross-referenced" ||
-          (event.event === "referenced" &&
-            event?.commit_id &&
-            event?.source?.issue?.pull_request) ||
-          (event.event === "closed" &&
-            event?.commit_id &&
-            event?.source?.issue?.pull_request) ||
-          (event.event === "connected" &&
-            event?.source?.issue?.pull_request?.merged === false)
+          (event.event === 'connected' || event.event === 'cross-referenced') ||
+          (event.event === 'referenced' && event?.commit_id && event?.source?.issue?.pull_request) ||
+          (event.event === 'closed' && event?.commit_id && event?.source?.issue?.pull_request) ||
+          (event.event === 'connected' && event?.source?.issue?.pull_request?.merged === false)
         ) {
           try {
             let prNumber = event?.source?.issue?.number;
@@ -120,18 +104,19 @@ const checkLinkedPRs = async (issue, octokit, owner, repo) => {
 
             if (prNumber) {
               console.log(`Checking PR #${prNumber} from timeline event`);
-              const { data: pr } = await octokit.rest.pulls.get({
+              const { data: pr } = await github.rest.pulls.get({
                 owner,
                 repo,
-                pull_number: prNumber,
+                pull_number: prNumber
               });
-
-              if (pr && pr.state === "open") {
+              
+              if (pr && pr.state === 'open') {
                 console.log(`Found valid linked PR #${prNumber} (${pr.state})`);
                 linkedPRs.add(prNumber); // Use add() instead of push()
               }
-            } else {
-              console.log("found found");
+            }else{
+              console.log('found found');
+              
             }
           } catch (e) {
             console.log(`Error fetching PR details:`, e.message);
@@ -139,34 +124,31 @@ const checkLinkedPRs = async (issue, octokit, owner, repo) => {
         }
       }
     } catch (timelineError) {
-      console.error(
-        `Error fetching timeline for issue #${issue.number}:`,
-        timelineError.message
-      );
+      console.error(`Error fetching timeline for issue #${issue.number}:`, timelineError.message);
     }
 
     // Method 2: Search for PRs that mention this issue
     try {
       const searchQuery = `repo:${owner}/${repo} type:pr is:open ${issue.number} in:body,title`;
       console.log(`Searching for PRs with query: ${searchQuery}`);
-
-      const searchResult = await octokit.rest.search.issuesAndPullRequests({
-        q: searchQuery,
+      
+      const searchResult = await github.rest.search.issuesAndPullRequests({
+        q: searchQuery
       });
 
       if (searchResult?.data?.items) {
-        const foundPRs = searchResult.data.items.filter((item) => item?.pull_request);
+        const foundPRs = searchResult.data.items.filter(item => item?.pull_request);
         console.log(`Found ${foundPRs.length} PRs mentioning this issue through search`);
-
+        
         for (const pr of foundPRs) {
           if (pr?.number) {
             try {
-              const prDetails = await octokit.rest.pulls.get({
+              const prDetails = await github.rest.pulls.get({
                 owner,
                 repo,
-                pull_number: pr.number,
+                pull_number: pr.number
               });
-              if (prDetails?.data?.state === "open") {
+              if (prDetails?.data?.state === 'open') {
                 linkedPRs.add(prDetails.data.number); // Use add() with PR number
               }
             } catch (e) {
@@ -176,7 +158,7 @@ const checkLinkedPRs = async (issue, octokit, owner, repo) => {
         }
       }
     } catch (searchError) {
-      console.log("Search API error:", searchError.message);
+      console.log('Search API error:', searchError.message);
     }
 
     // Method 3: Check issue body for PR references
@@ -184,8 +166,8 @@ const checkLinkedPRs = async (issue, octokit, owner, repo) => {
       const prReferences = new Set();
       const patterns = [
         /#(\d+)/g,
-        new RegExp(`https?://github\\.com/${owner}/${repo}/pull/(\\d+)`, "g"),
-        /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s*:?\s*#(\d+)/gi,
+        new RegExp(`https?://github\\.com/${owner}/${repo}/pull/(\\d+)`, 'g'),
+        /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s*:?\s*#(\d+)/gi
       ];
 
       for (const pattern of patterns) {
@@ -204,12 +186,12 @@ const checkLinkedPRs = async (issue, octokit, owner, repo) => {
 
       for (const prNumber of prReferences) {
         try {
-          const prDetails = await octokit.rest.pulls.get({
+          const prDetails = await github.rest.pulls.get({
             owner,
             repo,
-            pull_number: prNumber,
+            pull_number: prNumber
           });
-          if (prDetails?.data?.state === "open") {
+          if (prDetails?.data?.state === 'open') {
             linkedPRs.add(prNumber); // Use add() with PR number
           }
         } catch (e) {
@@ -217,39 +199,23 @@ const checkLinkedPRs = async (issue, octokit, owner, repo) => {
         }
       }
     }
-    // Method 4: GitHub's "Development" section (NEW)
     try {
-      console.log(`Checking Development section for issue #${issue.number}`);
-      const { data: linkedPRsFromAPI } = await octokit.request(
-        'GET /repos/{owner}/{repo}/issues/{issue_number}/pulls',
-        {
-          owner,
-          repo,
-          issue_number: issue.number,
-          per_page: 100,
-          headers: {
-            // This preview header enables the feature.
-            accept: 'application/vnd.github.groot-preview+json'
-          }
+      const { data: timelineEvents } = await github.rest.issues.listEventsForTimeline({
+        owner,
+        repo,
+        issue_number: issue.number,
+        per_page: 100
+      });
+    
+      timelineEvents.forEach(event => {
+        if (event.event === 'cross-referenced' && event.source?.issue?.pull_request) {
+          const prNumber = event.source.issue.number;
+          console.log(`Found linked PR #${prNumber} via timeline event`);
+          linkedPRs.add(prNumber);
         }
-      );
-      linkedPRsFromAPI
-        .filter(pr => pr.state === 'open')
-        .forEach(pr => {
-          console.log(`✅ Found linked PR #${pr.number} via Development section`);
-          linkedPRs.add(pr.number);
-        });
+      });
     } catch (error) {
-      if (error.status === 404) {
-        // Likely means there are no associated pull requests or the endpoint is not enabled.
-        console.log("Development section endpoint not found (likely no associated PRs).");
-      } else {
-        console.error("Development section check failed:", {
-          message: error.message,
-          status: error.status,
-          docs: error.documentation_url
-        });
-      }
+      console.error('Timeline check failed:', error.message);
     }
 
     // Return the Set of linked PR numbers (always return a Set)
@@ -261,12 +227,12 @@ const checkLinkedPRs = async (issue, octokit, owner, repo) => {
 };
 
 // Function to check user membership and ownership
-const checkUserMembership = async (owner, repo, username, octokit) => {
+const checkUserMembership = async (owner, repo, username, github) => {
   try {
     // Check if the user is an owner of the repository
-    const repoDetails = await octokit.rest.repos.get({
+    const repoDetails = await github.rest.repos.get({
       owner,
-      repo,
+      repo
     });
 
     // Check if the repository owner matches the username
@@ -277,9 +243,9 @@ const checkUserMembership = async (owner, repo, username, octokit) => {
 
     // Check if the user is an organization member
     try {
-      await octokit.rest.orgs.getMembershipForUser({
+      await github.rest.orgs.getMembershipForUser({
         org: owner,
-        username: username,
+        username: username
       });
       console.log(`${username} is an organization member`);
       return true;
@@ -293,49 +259,47 @@ const checkUserMembership = async (owner, repo, username, octokit) => {
   }
 };
 
-
+module.exports = async ({ github, context, core }) => {
   try {
     const unassignments = [];
     const inactivityPeriodInMinutes = 1;
 
-    const [owner, repo] = context.payload.repository.full_name.split("/");
+    const [owner, repo] = context.payload.repository.full_name.split('/');
     console.log(`Processing repository: ${owner}/${repo}`);
-
+    
     try {
       // Test API access by getting repository details
-      const { data: repository } = await octokit.rest.repos.get({
+      const { data: repository } = await github.rest.repos.get({
         owner,
-        repo,
+        repo
       });
-      console.log("Successfully authenticated with GitHub App and verified repository access");
+      console.log('Successfully authenticated with GitHub App and verified repository access');
       console.log(`Repository: ${repository.full_name}`);
     } catch (authError) {
-      console.error("Authentication error details:", {
+      console.error('Authentication error details:', {
         message: authError.message,
         status: authError.status,
-        documentation_url: authError.documentation_url,
+        documentation_url: authError.documentation_url
       });
-      throw new Error(
-        `Repository access failed. Please check your GitHub App permissions for repository access. Error: ${authError.message}`
-      );
+      throw new Error(`Repository access failed. Please check your GitHub App permissions for repository access. Error: ${authError.message}`);
     }
 
     // Get all issues using pagination
-    const issues = await getAllIssues(octokit, owner, repo);
+    const issues = await getAllIssues(github, owner, repo);
     console.log(`Processing ${issues.length} open issues`);
 
     for (const issue of issues) {
       if (!issue || !issue.number) {
-        console.error("Skipping invalid issue:", issue);
+        console.error('Skipping invalid issue:', issue);
         continue;
       }
 
       console.log(`\nProcessing issue #${issue.number}`);
-      console.log("Issue data:", {
+      console.log('Issue data:', {
         number: issue.number,
         title: issue.title,
         assignees: issue.assignees ? issue.assignees.length : 0,
-        updated_at: issue.updated_at,
+        updated_at: issue.updated_at
       });
 
       const assignees = issue.assignees || [];
@@ -347,15 +311,15 @@ const checkUserMembership = async (owner, repo, username, octokit) => {
       // Check if issue is inactive
       const lastActivity = new Date(issue.updated_at);
       const now = new Date();
-
+      
       if (now - lastActivity <= inactivityPeriodInMinutes * 60 * 1000) {
         console.log(`Issue #${issue.number} is still active, skipping`);
         continue;
       }
 
       console.log(`Checking for linked PRs for issue #${issue.number}`);
-      const hasOpenPRs = await checkLinkedPRs(issue, octokit, owner, repo);
-
+      const hasOpenPRs = await checkLinkedPRs(issue, github, owner, repo);
+      
       if (hasOpenPRs.size > 0) {
         console.log(`Issue #${issue.number} has open PRs, skipping unassignment`);
         continue;
@@ -368,11 +332,11 @@ const checkUserMembership = async (owner, repo, username, octokit) => {
 
       for (const assignee of assignees) {
         if (!assignee || !assignee.login) {
-          console.log("Skipping invalid assignee:", assignee);
+          console.log('Skipping invalid assignee:', assignee);
           continue;
         }
 
-        if (assignee.site_admin || (await checkUserMembership(owner, repo, assignee.login, octokit))) {
+        if (assignee.site_admin || await checkUserMembership(owner, repo, assignee.login, github)) {
           activeAssignees.push(assignee.login);
           console.log(`${assignee.login} is an active member, keeping assignment`);
         } else {
@@ -388,7 +352,7 @@ const checkUserMembership = async (owner, repo, username, octokit) => {
 
       try {
         // Update issue assignees
-        await octokit.rest.issues.update({
+        await github.rest.issues.update({
           owner,
           repo,
           issue_number: issue.number,
@@ -397,8 +361,8 @@ const checkUserMembership = async (owner, repo, username, octokit) => {
         console.log(`Successfully unassigned users from issue #${issue.number}`);
 
         // Add comment
-        const mentionList = inactiveAssignees.map((login) => `@${login}`).join(", ");
-        await octokit.rest.issues.createComment({
+        const mentionList = inactiveAssignees.map(login => `@${login}`).join(', ');
+        await github.rest.issues.createComment({
           owner,
           repo,
           issue_number: issue.number,
@@ -407,19 +371,20 @@ const checkUserMembership = async (owner, repo, username, octokit) => {
         console.log(`Added comment to issue #${issue.number}`);
 
         // Record unassignments
-        inactiveAssignees.forEach((login) => {
+        inactiveAssignees.forEach(login => {
           unassignments.push({
             user: login,
             repo,
             owner,
             issueNumber: issue.number,
-            issueUrl: `https://github.com/${owner}/${repo}/issues/${issue.number}`,
+            issueUrl: `https://github.com/${owner}/${repo}/issues/${issue.number}`
           });
         });
+
       } catch (issueError) {
         console.error(`Error processing issue #${issue.number}:`, {
           message: issueError.message,
-          status: issueError.status,
+          status: issueError.status
         });
         if (issueError.status === 403) {
           throw new Error('Token lacks necessary permissions. Ensure it has "issues" and "write" access.');
@@ -428,19 +393,20 @@ const checkUserMembership = async (owner, repo, username, octokit) => {
     }
 
     const formattedUnassignments = formatUnassignments(unassignments);
-    console.log("Unassignments completed:", unassignments.length);
-
+    console.log('Unassignments completed:', unassignments.length);
+    
     try {
-      core.setOutput("unassignments", formattedUnassignments);
+      core.setOutput('unassignments', formattedUnassignments);
       return formattedUnassignments;
     } catch (error) {
-      console.error("Error setting output:", error);
+      console.error('Error setting output:', error);
       core.setFailed(error.message);
     }
+
   } catch (error) {
-    console.error("Action failed:", error);
-    console.error("Full error details:", error);
+    console.error('Action failed:', error);
+    console.error('Full error details:', error);
     core.setFailed(error.message);
-    return "";
+    return '';
   }
 };
