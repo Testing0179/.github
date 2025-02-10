@@ -1,12 +1,15 @@
-const { Octokit } = await import('@octokit/rest');
 const fetch = require("node-fetch-native");
 
-// Initialize Octokit
+
+module.exports = async ({ context, core }) => {
+  // Do dynamic import inside the function, not at top-level
+  const { Octokit } = await import('@octokit/rest');
+
+  // Initialize Octokit
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN, // Use the GitHub token
   request: { fetch }, // Use node-fetch for compatibility
 });
-
 const formatUnassignments = (unassignments) => {
   if (unassignments.length === 0) return "";
 
@@ -281,7 +284,7 @@ const checkUserMembership = async (owner, repo, username, octokit) => {
   }
 };
 
-module.exports = async ({ context, core }) => {
+
   try {
     const unassignments = [];
     const inactivityPeriodInMinutes = 1;
