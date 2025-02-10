@@ -1,4 +1,5 @@
 const fetch = require('node-fetch-native');
+const { graphql } = require("@octokit/graphql");
 
 const formatUnassignments = (unassignments) => {
   if (unassignments.length === 0) return '';
