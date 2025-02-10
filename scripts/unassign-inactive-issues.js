@@ -87,7 +87,7 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
         issue_number: issue.number,
         per_page: 100
       });
-      console.log(timelineEvents);
+
       
       for (const event of timelineEvents) {
         if (
