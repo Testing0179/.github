@@ -1,6 +1,8 @@
-const { Octokit } = require("@octokit/rest");
-const fetch = require("node-fetch-native");
 
+const fetch = require("node-fetch-native");
+(async () => {
+  // Dynamically import the ES module
+  const { Octokit } = await import('@octokit/rest');
 // Initialize Octokit
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN, // Use the GitHub token
@@ -432,3 +434,4 @@ module.exports = async ({ context, core }) => {
     return "";
   }
 };
+})();
