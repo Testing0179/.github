@@ -199,24 +199,34 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
         }
       }
     }
-    try {
-      const { data: timelineEvents } = await github.rest.issues.listEventsForTimeline({
-        owner,
-        repo,
-        issue_number: issue.number,
-        per_page: 100
-      });
-    
-      timelineEvents.forEach(event => {
-        if (event.event === 'cross-referenced' && event.source?.issue?.pull_request) {
-          const prNumber = event.source.issue.number;
-          console.log(`Found linked PR #${prNumber} via timeline event`);
-          linkedPRs.add(prNumber);
-        }
-      });
-    } catch (error) {
-      console.error('Timeline check failed:', error.message);
-    }
+  // Method 4: Fetch PRs linked via GitHub's "Development" section
+  try {
+  console.log(`Checking Development section for linked PRs (issue #${issue.number})`);
+  
+  // Use the correct Octokit method
+  const { data: linkedPRList } = await github.rest.issues.listPullRequestsAssociatedWithIssue({
+    owner,
+    repo,
+    issue_number: issue.number,
+    per_page: 100,
+    headers: { 'X-GitHub-Api-Version': '2022-11-28' } // Required for API stability
+  });
+
+  // Filter open PRs and add to the linkedPRs set
+  linkedPRList
+    .filter(pr => pr.state === 'open')
+    .forEach(pr => {
+      console.log(`✅ Found linked PR #${pr.number} via Development section`);
+      linkedPRs.add(pr.number);
+    });
+  } catch (error) {
+  console.error('Development section check failed:', {
+    message: error.message,
+    status: error.status,
+    docs: error.documentation_url
+  });
+  }
+
 
     // Return the Set of linked PR numbers (always return a Set)
     return linkedPRs;
