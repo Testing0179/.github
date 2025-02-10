@@ -228,12 +228,11 @@ const checkLinkedPRs = async (issue, octokit, owner, repo) => {
           issue_number: issue.number,
           per_page: 100,
           headers: {
-            // This header enables the preview feature for this endpoint.
+            // This preview header enables the feature.
             accept: 'application/vnd.github.groot-preview+json'
           }
         }
       );
-    
       linkedPRsFromAPI
         .filter(pr => pr.state === 'open')
         .forEach(pr => {
@@ -241,11 +240,16 @@ const checkLinkedPRs = async (issue, octokit, owner, repo) => {
           linkedPRs.add(pr.number);
         });
     } catch (error) {
-      console.error("Development section check failed:", {
-        message: error.message,
-        status: error.status,
-        docs: error.documentation_url
-      });
+      if (error.status === 404) {
+        // Likely means there are no associated pull requests or the endpoint is not enabled.
+        console.log("Development section endpoint not found (likely no associated PRs).");
+      } else {
+        console.error("Development section check failed:", {
+          message: error.message,
+          status: error.status,
+          docs: error.documentation_url
+        });
+      }
     }
 
     // Return the Set of linked PR numbers (always return a Set)
