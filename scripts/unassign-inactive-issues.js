@@ -200,20 +200,32 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
       }
     }
   // Method 4: Check linked PRs via GitHub's GraphQL API
-try {
-  console.log(`Checking linked PRs for issue #${issue.number} via GraphQL`);
+  try {
+    console.log(`Checking linked PRs for issue #${issue.number} via GraphQL`);
   
-  const query = `
-    query($owner: String!, $repo: String!, $issueNumber: Int!) {
-      repository(owner: $owner, name: $repo) {
-        issue(number: $issueNumber) {
-          timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
-            nodes {
-              ... on CrossReferencedEvent {
-                source {
-                  ... on PullRequest {
-                    number
-                    state
+    const query = `
+      query($owner: String!, $repo: String!, $issueNumber: Int!) {
+        repository(owner: $owner, name: $repo) {
+          issue(number: $issueNumber) {
+            timelineItems(first: 100) {  // No itemTypes filter to capture all events
+              nodes {
+                __typename
+                ... on ConnectedEvent {
+                  source {
+                    __typename
+                    ... on PullRequest {
+                      number
+                      state
+                    }
+                  }
+                }
+                ... on CrossReferencedEvent {
+                  source {
+                    __typename
+                    ... on PullRequest {
+                      number
+                      state
+                    }
                   }
                 }
               }
@@ -221,35 +233,36 @@ try {
           }
         }
       }
-    }
-  `;
-
-  const result = await github.graphql(query, {
-    owner,
-    repo,
-    issueNumber: issue.number
-  });
-  console.log(result);
+    `;
   
-
-  const timelineItems = result?.repository?.issue?.timelineItems?.nodes || [];
-  
-  timelineItems
-    .filter(item => 
-      item?.source?.state === 'OPEN' && 
-      item?.source?.number
-    )
-    .forEach(item => {
-      console.log(`✅ Found linked PR #${item.source.number} via GraphQL`);
-      linkedPRs.add(item.source.number);
+    const result = await github.graphql(query, {
+      owner,
+      repo,
+      issueNumber: issue.number,
     });
-
-} catch (error) {
-  console.error('GraphQL query failed:', {
-    message: error.message,
-    errors: error.errors
-  });
-}
+  
+    console.log("GraphQL query result:", JSON.stringify(result, null, 2));
+  
+    const timelineItems = result?.repository?.issue?.timelineItems?.nodes || [];
+  
+    timelineItems
+      .filter(
+        item =>
+          item?.source?.__typename === 'PullRequest' &&
+          item?.source?.state === 'OPEN'
+      )
+      .forEach(item => {
+        console.log(`✅ Found linked PR #${item.source.number} via GraphQL`);
+        linkedPRs.add(item.source.number);
+      });
+  
+  } catch (error) {
+    console.error('GraphQL query failed:', {
+      message: error.message,
+      errors: error.errors,
+    });
+  }
+  
 
 
     // Return the Set of linked PR numbers (always return a Set)
