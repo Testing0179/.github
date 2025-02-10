@@ -229,6 +229,8 @@ try {
     repo,
     issueNumber: issue.number
   });
+  console.log(result);
+  
 
   const timelineItems = result?.repository?.issue?.timelineItems?.nodes || [];
   
