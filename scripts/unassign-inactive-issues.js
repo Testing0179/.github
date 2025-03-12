@@ -91,13 +91,27 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
       
       for (const event of timelineEvents) {
         if (
+          // Check if the event type is 'connected' or 'cross-referenced'. 
+          // These events indicate that GitHub automatically linked the issue to a PR based on commit messages or references.
           (event.event === 'connected' || event.event === 'cross-referenced') ||
+
+          // Look for a 'referenced' event that includes a commit ID and a linked PR.
+          // This implies that the commit in a PR mentions the issue, suggesting a connection.
           (event.event === 'referenced' && event?.commit_id && event?.source?.issue?.pull_request) ||
+
+          // Check for a 'closed' event that has an associated commit and a linked PR.
+          // This typically means the issue was closed by a commit referenced in the PR.
           (event.event === 'closed' && event?.commit_id && event?.source?.issue?.pull_request) ||
+
+          // Confirm a 'connected' event where the linked PR is not merged yet.
+          // This ensures that we consider PRs that are still open and haven't been merged.
           (event.event === 'connected' && event?.source?.issue?.pull_request?.merged === false)
         ) {
           try {
+            //issue.number is used because every pull request is also an issue.
+            //Some GitHub events only provide the issue object, so using issue.number ensures consistent access to the PR number across events.
             let prNumber = event?.source?.issue?.number;
+            
             if (!prNumber && event?.source?.pull_request?.number) {
               prNumber = event.source.pull_request.number;
             }
@@ -112,11 +126,12 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
               
               if (pr && pr.state === 'open') {
                 console.log(`Found valid linked PR #${prNumber} (${pr.state})`);
-                linkedPRs.add(prNumber); // Use add() instead of push()
+                linkedPRs.add(prNumber); 
               }
             }else{
-              console.log('founded pr linked in the issue');
-              linkedPRs.add(1);
+              // Fallback for PRs linked via GitHub UI where PR number cannot be retrieved from the payload
+              console.log('found pr linked in the issue');
+              linkedPRs.add(1); // Adds a placeholder to indicate a linked PR was found
             }
           } catch (e) {
             console.log(`Error fetching PR details:`, e.message);
@@ -149,7 +164,7 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
                 pull_number: pr.number
               });
               if (prDetails?.data?.state === 'open') {
-                linkedPRs.add(prDetails.data.number); // Use add() with PR number
+                linkedPRs.add(prDetails.data.number); 
               }
             } catch (e) {
               console.log(`Error fetching PR #${pr.number} details:`, e.message);
@@ -192,7 +207,7 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
             pull_number: prNumber
           });
           if (prDetails?.data?.state === 'open') {
-            linkedPRs.add(prNumber); // Use add() with PR number
+            linkedPRs.add(prNumber); 
           }
         } catch (e) {
           console.log(`Error fetching PR #${prNumber}:`, e.message);
@@ -242,6 +257,7 @@ const checkUserMembership = async (owner, repo, username, github) => {
 
 module.exports = async ({ github, context, core }) => {
   try {
+
     const unassignments = [];
     const inactivityPeriodInMinutes = 1;
 
@@ -265,7 +281,7 @@ module.exports = async ({ github, context, core }) => {
       throw new Error(`Repository access failed. Please check your GitHub App permissions for repository access. Error: ${authError.message}`);
     }
 
-    // Get all issues using pagination
+
     const issues = await getAllIssues(github, owner, repo);
     console.log(`Processing ${issues.length} open issues`);
 
