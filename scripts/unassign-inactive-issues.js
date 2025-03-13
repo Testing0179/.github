@@ -175,6 +175,8 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
     } catch (searchError) {
       console.log('Search API error:', searchError.message);
     }
+    // Return the Set of linked PR numbers (always return a Set)
+    return linkedPRs;
   } catch (error) {
     console.error(`Error in checkLinkedPRs for issue #${issue.number}:`, error);
     return new Set(); // Return empty Set instead of false
