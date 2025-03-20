@@ -151,7 +151,6 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
         advanced_search: true, // Enable advanced search
         headers: {
           'Accept': 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28'
         }
       });
     
