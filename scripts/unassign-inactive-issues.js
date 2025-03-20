@@ -149,6 +149,9 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
       const searchResult = await github.request('GET /search/issues', {
         q: searchQuery,
         advanced_search: true, // Enable advanced search
+        headers: {
+          'Accept': 'application/vnd.github+json',
+        }
       });
     
       // Local regex for "closes/fixes/resolves #123"
