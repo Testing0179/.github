@@ -142,11 +142,14 @@ const checkLinkedPRs = async (issue, github, owner, repo) => {
       console.error(`Error fetching timeline for issue #${issue.number}:`, timelineError.message);
     }
 
-    // Method 2: Search for PRs that mention this issue
+    // Method 2: Search for PRs that mention this issue using the updated endpoint
     try {
       const searchQuery = `repo:${owner}/${repo} type:pr is:open ${issue.number} in:body,title`;
-      const searchResult = await github.rest.search.issuesAndPullRequests({
+      const searchResult = await github.request('GET /search/issues', {
         q: searchQuery,
+        headers: {
+          Accept: 'application/vnd.github+json'
+        }
       });
 
       // Local regex for "closes/fixes/resolves #123"
